@@ -431,8 +431,12 @@
     <div class="nav-item" onclick="showPage('banche',this)"><span class="icon">🏦</span>Saldi Banche</div>
     <div class="nav-item" onclick="showPage('cartelle',this)"><span class="icon">📋</span>Situazione Cartelle</div>
     <div class="nav-section">Analisi Avanzata</div>
+    <div class="nav-item" onclick="showPage('bilanci',this)"><span class="icon">📑</span>Bilanci P&L</div>
     <div class="nav-item" onclick="showPage('menueng',this)"><span class="icon">🍴</span>Menu Engineering</div>
+    <div class="nav-item" onclick="showPage('bilanci',this)"><span class="icon">📑</span>Bilanci</div>
     <div class="nav-item" onclick="showPage('archivio',this)"><span class="icon">🗂️</span>Archivio File</div>
+    <div class="nav-section">Contabilità</div>
+    <div class="nav-item" onclick="showPage('bilancini',this)"><span class="icon">📑</span>Bilancini</div>
     <div class="nav-section" id="admin-nav-section" style="display:none">Admin</div>
     <div class="nav-item" id="admin-nav-item" onclick="showPage('admin',this)" style="display:none"><span class="icon">⚙️</span>Gestione Utenti</div>
   </div>
@@ -762,6 +766,106 @@
 </section>
 
 <!-- ==============================
+     BILANCI P&L
+================================= -->
+<section id="page-bilanci" class="page">
+  <div class="page-title">Bilanci P&amp;L</div>
+  <div class="page-sub">Carica i bilancini PDF anno per anno — confronto automatico ricavi, costi e utile</div>
+
+  <!-- Upload area -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📤 Carica Bilancino PDF</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="form-group">
+        <label>Anno</label>
+        <select id="bil-anno">
+          <option>2026</option><option>2025</option><option>2024</option>
+          <option>2023</option><option>2022</option><option>2021</option>
+          <option>2020</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Periodo</label>
+        <select id="bil-periodo">
+          <option value="annuale">Annuale (01/01 - 31/12)</option>
+          <option value="gen">Gennaio</option><option value="feb">Febbraio</option>
+          <option value="mar">Marzo</option><option value="apr">Aprile</option>
+          <option value="mag">Maggio</option><option value="giu">Giugno</option>
+          <option value="lug">Luglio</option><option value="ago">Agosto</option>
+          <option value="set">Settembre</option><option value="ott">Ottobre</option>
+          <option value="nov">Novembre</option><option value="dic">Dicembre</option>
+          <option value="q1">Q1 (Gen-Mar)</option><option value="q2">Q2 (Apr-Giu)</option>
+          <option value="q3">Q3 (Lug-Set)</option><option value="q4">Q4 (Ott-Dic)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Note (opzionale)</label>
+        <input id="bil-note" placeholder="Es. Provvisorio, Definitivo...">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('bil-file-input').click()" style="align-self:flex-end;">
+        📎 Carica PDF
+      </button>
+    </div>
+    <input type="file" id="bil-file-input" accept=".pdf" style="display:none" onchange="uploadBilancio(this)">
+    <div id="bil-upload-msg" style="font-size:0.78rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row" id="bilanci-kpi"></div>
+
+  <!-- Charts -->
+  <div class="grid2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">📈 Ricavi vs Costi vs Utile — Tutti gli anni</div>
+      <div class="chart-wrap-tall"><canvas id="chart-bil-annuale"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🥧 Composizione Costi (ultimo bilancio)</div>
+      <div class="chart-wrap-tall"><canvas id="chart-bil-costi"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📊 Confronto Voci Dettagliate Anno per Anno</div>
+    <div id="bil-filter-row" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" style="font-size:0.75rem;" onclick="filterBilanci('tutti')">Tutti</button>
+      <button class="btn btn-ghost" style="font-size:0.75rem;" onclick="filterBilanci('ricavi')">Ricavi</button>
+      <button class="btn btn-ghost" style="font-size:0.75rem;" onclick="filterBilanci('costi')">Costi</button>
+      <button class="btn btn-ghost" style="font-size:0.75rem;" onclick="filterBilanci('personale')">Personale</button>
+    </div>
+    <div class="chart-wrap" style="height:300px;"><canvas id="chart-bil-dettaglio"></canvas></div>
+  </div>
+
+  <!-- Bilanci list -->
+  <div class="card">
+    <div class="card-title">📋 Bilanci Caricati</div>
+    <div id="bilanci-list">
+      <div style="color:var(--text-muted);font-size:0.82rem;padding:20px 0;text-align:center;">
+        Nessun bilancio caricato ancora. Carica il primo PDF qui sopra.
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail view -->
+  <div id="bil-detail-wrap" style="display:none;">
+    <div class="card" style="margin-top:20px;">
+      <div class="card-title" id="bil-detail-title">📄 Dettaglio Bilancio</div>
+      <div class="grid2">
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">COSTI E SPESE</div>
+          <div id="bil-detail-costi"></div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">RICAVI E RENDITE</div>
+          <div id="bil-detail-ricavi"></div>
+        </div>
+      </div>
+      <div id="bil-detail-summary" style="margin-top:16px;padding:14px;background:var(--surface2);border-radius:8px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
      MENU ENGINEERING
 ================================= -->
 <section id="page-menueng" class="page">
@@ -824,6 +928,86 @@
 </section>
 
 <!-- ==============================
+     BILANCI
+================================= -->
+<section id="page-bilanci" class="page">
+  <div class="page-title">Bilanci</div>
+  <div class="page-sub">Carica i PDF dei bilancini — estrazione automatica e confronto anno/mese</div>
+
+  <!-- UPLOAD SECTION -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📤 Carica Bilancino PDF</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="form-group">
+        <label>Anno</label>
+        <select id="bil-anno">
+          <option>2026</option><option>2025</option><option>2024</option>
+          <option>2023</option><option>2022</option><option>2021</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Periodo</label>
+        <select id="bil-periodo">
+          <option value="annuale">Annuale (intero anno)</option>
+          <option value="GENNAIO">Gennaio</option><option value="FEBBRAIO">Febbraio</option>
+          <option value="MARZO">Marzo</option><option value="APRILE">Aprile</option>
+          <option value="MAGGIO">Maggio</option><option value="GIUGNO">Giugno</option>
+          <option value="LUGLIO">Luglio</option><option value="AGOSTO">Agosto</option>
+          <option value="SETTEMBRE">Settembre</option><option value="OTTOBRE">Ottobre</option>
+          <option value="NOVEMBRE">Novembre</option><option value="DICEMBRE">Dicembre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Note (opzionale)</label>
+        <input id="bil-note" placeholder="Es. provvisorio, definitivo...">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('bil-file-input').click()" style="align-self:flex-end;">
+        📎 Carica PDF
+      </button>
+    </div>
+    <input type="file" id="bil-file-input" accept=".pdf" style="display:none" onchange="uploadBilancio(this)">
+    <div id="bil-upload-msg" style="font-size:0.78rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+
+  <!-- KPI CONFRONTO -->
+  <div class="kpi-row" id="bilanci-kpi"></div>
+
+  <!-- GRAFICI CONFRONTO -->
+  <div class="grid2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">📊 Ricavi vs Costi vs Utile — per Anno</div>
+      <div class="chart-wrap-tall"><canvas id="chart-bil-annuale"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🥧 Composizione Costi (ultimo bilancio)</div>
+      <div class="chart-wrap-tall"><canvas id="chart-bil-costi-pie"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📈 Trend Mensile — seleziona anno</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;" id="bil-anno-nav"></div>
+    <div class="chart-wrap-tall"><canvas id="chart-bil-mensile"></canvas></div>
+  </div>
+
+  <!-- TABELLA DETTAGLIO VOCI -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📋 Confronto Voci — Anno per Anno</div>
+    <div class="tbl-wrap" id="bil-confronto-wrap"></div>
+  </div>
+
+  <!-- LISTA BILANCI CARICATI -->
+  <div class="card">
+    <div class="card-title">🗂️ Bilanci Caricati</div>
+    <div id="bilanci-list">
+      <div style="color:var(--text-muted);font-size:0.82rem;padding:20px 0;text-align:center;">
+        Nessun bilancio caricato ancora.<br>Carica il primo PDF qui sopra.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
      ARCHIVIO FILE
 ================================= -->
 <section id="page-archivio" class="page">
@@ -857,6 +1041,88 @@
     <div id="archivio-list">
       <div style="color:var(--text-muted);font-size:0.82rem;padding:20px 0;text-align:center;">Nessun file archiviato</div>
     </div>
+  </div>
+</section>
+
+<!-- ==============================
+     BILANCINI
+================================= -->
+<section id="page-bilancini" class="page">
+  <div class="page-title">Bilancini</div>
+  <div class="page-sub">Carica i PDF del commercialista — confronto automatico mese/mese e anno/anno</div>
+
+  <!-- Upload area -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📤 Carica Bilancino PDF</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="form-group">
+        <label>Anno</label>
+        <select id="bil-anno">
+          <option>2023</option><option>2024</option><option selected>2025</option><option>2026</option><option>2027</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Periodo</label>
+        <select id="bil-periodo">
+          <option value="annuale">Annuale (intero anno)</option>
+          <option value="Q1">Q1 Gen-Mar</option>
+          <option value="Q2">Q2 Apr-Giu</option>
+          <option value="Q3">Q3 Lug-Set</option>
+          <option value="Q4">Q4 Ott-Dic</option>
+          <option value="Gennaio">Gennaio</option><option value="Febbraio">Febbraio</option>
+          <option value="Marzo">Marzo</option><option value="Aprile">Aprile</option>
+          <option value="Maggio">Maggio</option><option value="Giugno">Giugno</option>
+          <option value="Luglio">Luglio</option><option value="Agosto">Agosto</option>
+          <option value="Settembre">Settembre</option><option value="Ottobre">Ottobre</option>
+          <option value="Novembre">Novembre</option><option value="Dicembre">Dicembre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Note</label>
+        <input id="bil-note" placeholder="Es. Provvisorio, Definitivo...">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('bil-file-input').click()" style="align-self:flex-end;">📎 Carica PDF</button>
+    </div>
+    <input type="file" id="bil-file-input" accept=".pdf" style="display:none" onchange="uploadBilancino(this)">
+    <div id="bil-upload-msg" style="font-size:0.78rem;margin-top:12px;min-height:20px;"></div>
+  </div>
+
+  <!-- KPI confronto -->
+  <div class="kpi-row" id="bil-kpi"></div>
+
+  <!-- Grafici -->
+  <div class="grid2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">📈 Ricavi — Confronto Annuale</div>
+      <div class="chart-wrap"><canvas id="chart-bil-ricavi"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 Utile — Confronto Annuale</div>
+      <div class="chart-wrap"><canvas id="chart-bil-utile"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">📊 Composizione Costi (ultimo bilancino)</div>
+      <div class="chart-wrap"><canvas id="chart-bil-costi"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📉 Costi vs Ricavi per Anno</div>
+      <div class="chart-wrap"><canvas id="chart-bil-confronto"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Tabella dettaglio bilancini caricati -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">📋 Bilancini Caricati</div>
+    <div id="bil-lista"></div>
+  </div>
+
+  <!-- Dettaglio voci bilancino selezionato -->
+  <div class="card" id="bil-dettaglio-card" style="display:none;">
+    <div class="card-title">🔍 Dettaglio Voci — <span id="bil-dettaglio-title" style="color:var(--gold)"></span></div>
+    <div class="tbl-wrap" id="bil-dettaglio-table"></div>
   </div>
 </section>
 
@@ -1185,6 +1451,7 @@ async function loadAllFromFirestore() {
     setSaveDot(false);
   } catch(e) { console.error('Load error:', e); }
   renderCruscotto();
+  loadBilanciFromFirestore();
 }
 
 /* ============================================================
@@ -1270,6 +1537,8 @@ function startAuthListener() {
         document.getElementById('admin-nav-item').style.display    = '';
       }
       loadAllFromFirestore();
+      loadBilanciniFromFirestore();
+      loadBilanciFromFirestore();
     } catch(e) { console.error('Auth error:', e); showAuthScreen(); }
   });
 }
@@ -1516,7 +1785,10 @@ function showPage(id, el) {
   const renders = {
     admin: loadUsersList,
     menueng: renderMenuEng,
+    bilanci: () => { loadBilanciFromFirestore().then(renderBilanci); },
+    bilanci: renderBilanci,
     archivio: loadArchivio,
+    bilancini: ()=>{loadBilanciniFromFirestore();renderBilancini();},
     cruscotto: renderCruscotto,
     vendite: ()=>renderSalesTable(),
     abc_piatti: ()=>renderAbcTable(),
@@ -3430,6 +3702,399 @@ function resetUtenzeRow(tipo, idx) {
   utenzeData[tipo].spesa2026[idx] = null;
   renderUtenze(tipo);
   scheduleAutoSave();
+}
+
+/* ============================================================
+   BILANCINI — PDF Parser (formato commercialista italiano)
+============================================================ */
+const bilanciniData = {};
+
+function parseItalianNum(s) {
+  if (!s) return 0;
+  s = s.trim().replace(/\./g, '').replace(',', '.');
+  return parseFloat(s) || 0;
+}
+
+function extractBilLine(lines, keyword) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toUpperCase();
+    if (line.indexOf(keyword.toUpperCase()) >= 0) {
+      const nums = lines[i].match(/[\d]+\.[\d]{3},[\d]{2}|[\d]+,[\d]{2}/g);
+      if (nums && nums.length > 0) {
+        return parseItalianNum(nums[nums.length - 1]);
+      }
+    }
+  }
+  return 0;
+}
+
+function extractBilCode(lines, code) {
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    const re = new RegExp('^' + code + '(\\.|\\s)');
+    if (re.test(trimmed)) {
+      const nums = trimmed.match(/[\d]+\.[\d]{3},[\d]{2}|[\d]+,[\d]{2}/g);
+      if (nums && nums.length > 0) {
+        return parseItalianNum(nums[nums.length - 1]);
+      }
+    }
+  }
+  return 0;
+}
+
+function parseBilancinoPdf(text) {
+  var lines = text.split(/\n|\r\n|\r/);
+  var result = {};
+
+  function byCode(code) {
+    for (var i=0; i<lines.length; i++) {
+      var t = lines[i].trim();
+      if (new RegExp('^' + code + '[.\\s]').test(t)) {
+        var nums = t.match(/\d+\.\d{3},\d{2}|\d+,\d{2}/g);
+        if (nums) return parseItalianNum(nums[0]);
+      }
+    }
+    return 0;
+  }
+
+  function byKeyword(kw) {
+    for (var i=0; i<lines.length; i++) {
+      if (lines[i].toUpperCase().indexOf(kw.toUpperCase()) >= 0) {
+        var nums = lines[i].match(/\d+\.\d{3},\d{2}|\d+,\d{2}/g);
+        if (nums) return parseItalianNum(nums[nums.length-1]);
+      }
+    }
+    return 0;
+  }
+
+  result.ricavi = (function() {
+    for (var i=0; i<lines.length; i++) {
+      var t = lines[i];
+      if (t.indexOf('10') >= 0 && t.toUpperCase().indexOf('POSITIVI') >= 0) {
+        var nums = t.match(/\d+\.\d{3},\d{2}|\d+,\d{2}/g);
+        if (nums) return parseItalianNum(nums[nums.length-1]);
+      }
+    }
+    return byKeyword('RICAVI');
+  })();
+
+  result.acquisti     = byCode('22');
+  result.servizi      = byCode('24');
+  result.lavoro       = byCode('26');
+  result.interessi    = byCode('30');
+  result.ammortamenti = byCode('34');
+  result.locazione    = byCode('36');
+  result.omaggi       = byKeyword('OMAGGI');
+
+  result.altriCosti = (function() {
+    var best = 0;
+    for (var i=0; i<lines.length; i++) {
+      var t = lines[i].trim();
+      if (/^38\s+ALTRI/i.test(t)) {
+        var nums = t.match(/\d+\.\d{3},\d{2}|\d+,\d{2}/g);
+        if (nums) { var v = parseItalianNum(nums[0]); if (v > best) best = v; }
+      }
+    }
+    return best;
+  })();
+
+  result.totaleCosti = (function() {
+    var full = lines.join(' ').toUpperCase();
+    var collapsed = full;
+    for (var x=0; x<8; x++) collapsed = collapsed.replace(/([A-Z]) ([A-Z])/g,'$1$2');
+    var m = collapsed.match(/TOTALECOSTI\s*(\d+\.\d{3},\d{2}|\d+,\d{2})/);
+    if (m) return parseItalianNum(m[1]);
+    return result.acquisti + result.servizi + result.lavoro + result.interessi + result.ammortamenti + result.locazione + result.altriCosti;
+  })();
+
+  result.totaleRicavi = result.ricavi - result.omaggi;
+
+  result.utile = (function() {
+    for (var i=0; i<lines.length; i++) {
+      if (lines[i].toUpperCase().indexOf('UTILE') >= 0) {
+        var nums = lines[i].match(/\d+\.\d{3},\d{2}|\d+,\d{2}/g);
+        if (nums) return parseItalianNum(nums[0]);
+      }
+    }
+    return result.totaleRicavi - result.totaleCosti;
+  })();
+
+  result.subServizi = {
+    forzaMotrice:  byKeyword('FORZA MOTRICE'),
+    vigilanza:     byKeyword('VIGILANZA'),
+    compensiTerzi: byKeyword('COMPENSI A TERZI'),
+    spAmm:         byKeyword('SPESE DI AMMINISTRAZIONE'),
+    prestTerzi:    byKeyword('PRESTAZ. DI SERVIZI DA TERZI'),
+    acquedotto:    byKeyword('UTENZE ACQUEDOTTO'),
+    telefono:      byKeyword('SPESE TELEFONICHE'),
+    gasolio:       byKeyword('GASOLIO'),
+  };
+  result.subLavoro = {
+    salari: byKeyword('SALARI E STIPENDI'),
+    inps:   byKeyword('CONTRIBUTI INPS'),
+    tfr:    byKeyword('TFR'),
+  };
+
+  result.foodCostPct  = result.totaleRicavi > 0 ? result.acquisti / result.totaleRicavi * 100 : 0;
+  result.laborCostPct = result.totaleRicavi > 0 ? result.lavoro   / result.totaleRicavi * 100 : 0;
+  result.marginePct   = result.totaleRicavi > 0 ? result.utile    / result.totaleRicavi * 100 : 0;
+
+  return result;
+}
+
+function readPdfAsText(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var raw = e.target.result;
+      var text = '';
+      // Extract text from PDF: look for text between ( ) in PDF streams
+      var matches = raw.match(/\(([^)]{1,300})\)/g);
+      if (matches && matches.length > 20) {
+        text = matches.map(function(m) { return m.slice(1, -1); }).join(' ');
+      }
+      // Also try raw text (works for text-based PDFs)
+      if (text.length < 200) {
+        // Look for readable ASCII text blocks
+        var readable = raw.replace(/[^\x20-\x7E\n\r]/g, ' ');
+        text = readable;
+      }
+      resolve(text);
+    };
+    reader.onerror = reject;
+    reader.readAsBinaryString(file);
+  });
+}
+
+async function uploadBilancino(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var msgEl = document.getElementById('bil-upload-msg');
+  msgEl.style.color = 'var(--gold)';
+  msgEl.textContent = 'Lettura PDF in corso...';
+
+  var anno    = document.getElementById('bil-anno').value;
+  var periodo = document.getElementById('bil-periodo').value;
+  var note    = document.getElementById('bil-note').value;
+  var key     = anno + '_' + periodo;
+
+  try {
+    var text = await readPdfAsText(file);
+    var dati = parseBilancinoPdf(text);
+
+    if (dati.ricavi === 0 && dati.totaleCosti === 0) {
+      msgEl.style.color = 'var(--red)';
+      msgEl.textContent = 'Impossibile estrarre dati — assicurati che il PDF non sia scansionato.';
+      input.value = '';
+      return;
+    }
+
+    var base64 = await fileToBase64(file);
+    var record = {
+      key: key, anno: parseInt(anno), periodo: periodo, note: note,
+      dataCaricamento: new Date().toLocaleDateString('it-IT') + ' ' +
+        new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}),
+      nomeFile: file.name, dati: dati, base64: base64
+    };
+
+    bilanciniData[key] = record;
+
+    if (window.db && window.currentUser) {
+      await window.db.collection('bilancini').doc(window.currentUser.uid + '_' + key).set({
+        key: key, anno: parseInt(anno), periodo: periodo, note: note,
+        dataCaricamento: record.dataCaricamento, nomeFile: file.name,
+        dati: dati, userId: window.currentUser.uid
+      });
+    }
+
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = 'Bilancino ' + anno + ' ' + periodo + ' caricato! Ricavi: ' + fmtCur(dati.ricavi) + ' | Utile: ' + fmtCur(dati.utile);
+    input.value = '';
+    document.getElementById('bil-note').value = '';
+    renderBilancini();
+
+  } catch(e) {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Errore: ' + e.message;
+    console.error(e);
+    input.value = '';
+  }
+}
+
+async function loadBilanciniFromFirestore() {
+  if (!window.db || !window.currentUser) return;
+  try {
+    var snap = await window.db.collection('bilancini')
+      .where('userId', '==', window.currentUser.uid).get();
+    snap.docs.forEach(function(doc) {
+      var d = doc.data();
+      if (d.key && d.dati) bilanciniData[d.key] = d;
+    });
+    renderBilancini();
+  } catch(e) { console.error('Load bilancini:', e); }
+}
+
+function renderBilancini() {
+  var keys = Object.keys(bilanciniData).sort().reverse();
+
+  if (keys.length === 0) {
+    document.getElementById('bil-kpi').innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">Nessun bilancino caricato ancora.</div>';
+    document.getElementById('bil-lista').innerHTML = '<div style="color:var(--text-muted);padding:20px 0;text-align:center;font-size:0.82rem;">Carica il primo PDF del commercialista.</div>';
+    return;
+  }
+
+  var latest = bilanciniData[keys[0]];
+  var d = latest.dati;
+
+  document.getElementById('bil-kpi').innerHTML =
+    '<div class="kpi"><div class="kpi-label">Ultimo: ' + latest.anno + ' ' + latest.periodo + '</div><div class="kpi-value gold">' + fmtCur(d.ricavi) + '</div><div class="kpi-sub">Ricavi totali</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Costi Totali</div><div class="kpi-value red">' + fmtCur(d.totaleCosti) + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Utile Esercizio</div><div class="kpi-value ' + (d.utile>=0?'positive':'negative') + '">' + fmtCur(d.utile) + '</div><div class="kpi-sub">' + fmt(d.marginePct,1) + '% sui ricavi</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Food Cost %</div><div class="kpi-value ' + (d.foodCostPct>35?'red':'positive') + '">' + fmt(d.foodCostPct,1) + '%</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Costo Lavoro %</div><div class="kpi-value ' + (d.laborCostPct>40?'red':'positive') + '">' + fmt(d.laborCostPct,1) + '%</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Bilancini Caricati</div><div class="kpi-value">' + keys.length + '</div></div>';
+
+  renderBilanciniCharts(keys);
+
+  var rows = keys.map(function(k) {
+    var b = bilanciniData[k];
+    var bd = b.dati;
+    return '<tr>' +
+      '<td><strong>' + b.anno + '</strong></td>' +
+      '<td><span class="badge badge-blue">' + b.periodo + '</span></td>' +
+      '<td class="num gold">' + fmtCur(bd.ricavi) + '</td>' +
+      '<td class="num red">' + fmtCur(bd.totaleCosti) + '</td>' +
+      '<td class="num ' + (bd.utile>=0?'green':'red') + '">' + fmtCur(bd.utile) + '</td>' +
+      '<td class="num">' + fmt(bd.foodCostPct,1) + '%</td>' +
+      '<td class="num">' + fmt(bd.laborCostPct,1) + '%</td>' +
+      '<td style="color:var(--text-muted);font-size:0.75rem;">' + (b.note||'—') + '</td>' +
+      '<td style="color:var(--text-dim);font-size:0.72rem;">' + (b.dataCaricamento||'—') + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button class="btn btn-ghost" onclick="showBilDettaglio(\'' + k + '\')" style="padding:3px 8px;font-size:0.72rem;">Dettaglio</button> ' +
+        (b.base64 ? '<button class="btn btn-ghost" onclick="downloadBilancino(\'' + k + '\')" style="padding:3px 8px;font-size:0.72rem;">PDF</button> ' : '') +
+        '<button class="btn btn-danger" onclick="deleteBilancino(\'' + k + '\')" style="padding:3px 8px;font-size:0.72rem;">Elimina</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('bil-lista').innerHTML =
+    '<table><thead><tr>' +
+    '<th>Anno</th><th>Periodo</th><th>Ricavi</th><th>Costi</th><th>Utile</th>' +
+    '<th>Food%</th><th>Lavoro%</th><th>Note</th><th>Caricato</th><th></th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function renderBilanciniCharts(keys) {
+  destroyChart('chart-bil-ricavi');
+  destroyChart('chart-bil-utile');
+  destroyChart('chart-bil-costi');
+  destroyChart('chart-bil-confronto');
+
+  var sorted = keys.slice().sort();
+  var labels  = sorted.map(function(k) { var b=bilanciniData[k]; return b.anno + (b.periodo!=='annuale'?' '+b.periodo:''); });
+  var ricavi  = sorted.map(function(k) { return bilanciniData[k].dati.ricavi; });
+  var costi   = sorted.map(function(k) { return bilanciniData[k].dati.totaleCosti; });
+  var utili   = sorted.map(function(k) { return bilanciniData[k].dati.utile; });
+
+  var sc = { x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}, y:{ticks:{color:'#555'},grid:{color:'#1a1a1a'}} };
+
+  charts['chart-bil-ricavi'] = new Chart(document.getElementById('chart-bil-ricavi'), {
+    type:'bar', data:{ labels:labels, datasets:[{label:'Ricavi',data:ricavi,backgroundColor:'rgba(76,175,125,0.5)',borderColor:'#4caf7d',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:sc}
+  });
+  charts['chart-bil-utile'] = new Chart(document.getElementById('chart-bil-utile'), {
+    type:'bar', data:{ labels:labels, datasets:[{label:'Utile',data:utili,
+      backgroundColor:utili.map(function(u){return u>=0?'rgba(76,175,125,0.5)':'rgba(224,82,82,0.5)';}),
+      borderColor:utili.map(function(u){return u>=0?'#4caf7d':'#e05252';}),borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:sc}
+  });
+
+  var last = bilanciniData[sorted[sorted.length-1]].dati;
+  charts['chart-bil-costi'] = new Chart(document.getElementById('chart-bil-costi'), {
+    type:'doughnut',
+    data:{labels:['Acquisti','Servizi','Lavoro','Interessi','Ammortamenti','Locazione','Altri'],
+      datasets:[{data:[last.acquisti,last.servizi,last.lavoro,last.interessi,last.ammortamenti,last.locazione,last.altriCosti],
+        backgroundColor:['#e05252','#e67e22','#9b59b6','#e91e63','#607d8b','#795548','#ff5722'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#888',font:{size:10}}}}}
+  });
+  charts['chart-bil-confronto'] = new Chart(document.getElementById('chart-bil-confronto'), {
+    type:'bar', data:{labels:labels, datasets:[
+      {label:'Ricavi',data:ricavi,backgroundColor:'rgba(76,175,125,0.5)',borderColor:'#4caf7d',borderWidth:1},
+      {label:'Costi', data:costi, backgroundColor:'rgba(224,82,82,0.4)',borderColor:'#e05252',borderWidth:1},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#888'}}},scales:sc}
+  });
+}
+
+function showBilDettaglio(key) {
+  var b = bilanciniData[key];
+  if (!b) return;
+  var d = b.dati;
+  document.getElementById('bil-dettaglio-title').textContent = b.anno + ' ' + b.periodo;
+  document.getElementById('bil-dettaglio-card').style.display = 'block';
+
+  var voci = [
+    {label:'RICAVI TOTALI', val:d.totaleRicavi, bold:true, color:'var(--green)'},
+    {label:'  Ricavi vendite', val:d.ricavi, indent:true},
+    {label:'  Omaggi (detratti)', val:-d.omaggi, indent:true},
+    {label:'', val:null},
+    {label:'TOTALE COSTI', val:d.totaleCosti, bold:true, color:'var(--red)'},
+    {label:'  Acquisti Merci (22)', val:d.acquisti, indent:true},
+    {label:'  Costo Servizi (24)', val:d.servizi, indent:true},
+    {label:'    Forza motrice/luce', val:d.subServizi.forzaMotrice, indent2:true},
+    {label:'    Acquedotto', val:d.subServizi.acquedotto, indent2:true},
+    {label:'    Gasolio/Gas', val:d.subServizi.gasolio, indent2:true},
+    {label:'    Compensi terzi', val:d.subServizi.compensiTerzi, indent2:true},
+    {label:'    Spese amministrazione', val:d.subServizi.spAmm, indent2:true},
+    {label:'    Prestazioni terzi', val:d.subServizi.prestTerzi, indent2:true},
+    {label:'  Costo Lavoro (26)', val:d.lavoro, indent:true},
+    {label:'    Salari e stipendi', val:d.subLavoro.salari, indent2:true},
+    {label:'    Contributi INPS', val:d.subLavoro.inps, indent2:true},
+    {label:'    TFR', val:d.subLavoro.tfr, indent2:true},
+    {label:'  Interessi Passivi (30)', val:d.interessi, indent:true},
+    {label:'  Ammortamenti (34)', val:d.ammortamenti, indent:true},
+    {label:'  Canoni Locazione (36)', val:d.locazione, indent:true},
+    {label:'  Altri Costi (38)', val:d.altriCosti, indent:true},
+    {label:'', val:null},
+    {label:'UTILE D\'ESERCIZIO', val:d.utile, bold:true, color:d.utile>=0?'var(--green)':'var(--red)'},
+    {label:'', val:null},
+    {label:'% Food Cost', val:null, pct:fmt(d.foodCostPct,1)+'%', color:d.foodCostPct>35?'var(--red)':'var(--green)'},
+    {label:'% Costo Lavoro', val:null, pct:fmt(d.laborCostPct,1)+'%', color:d.laborCostPct>40?'var(--red)':'var(--green)'},
+    {label:'% Margine Netto', val:null, pct:fmt(d.marginePct,1)+'%', color:d.marginePct>=0?'var(--green)':'var(--red)'},
+  ];
+
+  var rows = voci.map(function(v) {
+    if (!v.label && v.val===null) return '<tr><td colspan="2" style="padding:3px;border:none"></td></tr>';
+    var indent = v.indent2 ? 'padding-left:36px;' : (v.indent ? 'padding-left:18px;' : '');
+    var bold   = v.bold ? 'font-weight:700;' : '';
+    var color  = v.color ? 'color:'+v.color+';' : '';
+    var valStr = v.pct ? v.pct : (v.val !== null ? fmtCur(v.val) : '');
+    return '<tr><td style="'+indent+bold+color+'font-size:0.82rem;">'+v.label+'</td>' +
+           '<td class="num" style="'+bold+color+'font-size:0.82rem;">'+valStr+'</td></tr>';
+  }).join('');
+
+  document.getElementById('bil-dettaglio-table').innerHTML =
+    '<table><thead><tr><th>Voce</th><th>Importo</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  document.getElementById('bil-dettaglio-card').scrollIntoView({behavior:'smooth'});
+}
+
+function downloadBilancino(key) {
+  var b = bilanciniData[key];
+  if (!b || !b.base64) { alert('PDF non disponibile — ricarica il file.'); return; }
+  var a = document.createElement('a');
+  a.href = b.base64;
+  a.download = b.nomeFile || 'bilancino.pdf';
+  a.click();
+}
+
+async function deleteBilancino(key) {
+  if (!confirm('Eliminare questo bilancino?')) return;
+  delete bilanciniData[key];
+  if (window.db && window.currentUser) {
+    await window.db.collection('bilancini').doc(window.currentUser.uid + '_' + key).delete().catch(function(){});
+  }
+  document.getElementById('bil-dettaglio-card').style.display = 'none';
+  renderBilancini();
 }
 
 </script>

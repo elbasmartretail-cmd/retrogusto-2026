@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Il Retrogusto — Master Gestione 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-auth-compat.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-firestore-compat.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2e2e2e;
+    --gold: #c9a84c;
+    --red: #e05252;
+    --green: #4caf7d;
+    --blue: #5b9bd5;
+    --text: #f0ede8;
+    --text-muted: #888;
+    --radius: 10px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .sidebar-logo { padding: 28px 20px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--gold); }
+  .sidebar-logo span { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+  .nav { padding: 16px 0; }
+  .nav-section { padding: 10px 20px 4px; font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--gold); border-left-color: var(--gold); background: rgba(201,168,76,0.12); }
+  .nav-item .icon { width: 20px; text-align: center; }
+
+  .main { margin-left: 260px; flex: 1; padding: 32px; max-width: calc(100vw - 260px); }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--gold); margin-bottom: 4px; }
+  .page-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 28px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+  .card-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; position: relative; }
+  .kpi::before { content: ''; position: absolute; top:0; left:0; right:0; height:2px; background: var(--gold); }
+  .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .kpi-value { font-size: 1.55rem; font-weight: 600; line-height: 1; }
+  .kpi-value.positive { color: var(--green); }
+  .kpi-value.negative { color: var(--red); }
+  .kpi-value.gold { color: var(--gold); }
+  .kpi-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: var(--surface2); color: var(--text-muted); font-weight: 500; font-size: 0.7rem; padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid #1c1c1c; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.green { color: var(--green); }
+  td.red { color: var(--red); }
+  td.gold { color: var(--gold); }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  label { font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+  input, select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 9px 12px; font-size: 0.83rem; outline: none; }
+  input:focus, select:focus { border-color: var(--gold); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 500; transition: all 0.15s; }
+  .btn-primary { background: var(--gold); color: #000; }
+  .btn-primary:hover { background: #e8c97a; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-danger { background: rgba(224,82,82,0.15); color: var(--red); border: 1px solid rgba(224,82,82,0.2); }
+
+  .year-selector { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .year-btn { padding: 8px 16px; border-radius: 20px; font-size: 0.78rem; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .year-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .spinner { border: 3px solid rgba(255,255,255,0.1); border-radius: 50%; border-top: 3px solid var(--gold); width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  .progress-container { width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 12px; }
+  .progress-fill { height: 100%; background: var(--gold); width: 0%; transition: width 0.3s ease; }
+
+  .topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .topbar-email { font-size: 0.75rem; color: var(--text-muted); }
+  .topbar-role { font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(201,168,76,0.12); color: var(--gold); font-weight: 600; }
+  .save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); transition: background 0.3s; }
+  .save-dot.saving  { background: var(--gold); animation: blink 1s infinite; }
+  .save-dot.error   { background: var(--red); }
+  .save-dot.offline { background: #555; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  #net-banner {
+    display:none; position:fixed; bottom:0; left:0; right:0; z-index:8000;
+    padding:10px 20px; font-size:0.8rem; font-weight:500;
+    align-items:center; justify-content:center; gap:10px; backdrop-filter:blur(8px);
+  }
+  #net-banner.offline { display:flex; background:rgba(30,30,30,0.96); color:#aaa; border-top:1px solid #333; }
+  #net-banner.neterr  { display:flex; background:rgba(224,82,82,0.15); color:var(--red); border-top:1px solid rgba(224,82,82,0.3); }
+  #net-banner.syncing { display:flex; background:rgba(201,168,76,0.12); color:var(--gold); border-top:1px solid rgba(201,168,76,0.2); }
+  #net-banner .nbdot  { width:7px; height:7px; border-radius:50%; background:currentColor; animation:blink 1.2s infinite; flex-shrink:0; }
+  #net-banner .nbretry{ background:transparent; border:1px solid currentColor; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:0.75rem; color:inherit; font-family:inherit; }
+  #net-banner .nbretry:hover { opacity:0.75; }
+
+  #auth-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  #auth-overlay.gone { display: none; }
+  .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 44px 48px; width: 400px; text-align: center; }
+  .auth-brand { font-family: 'Playfair Display', serif; font-size: 1.9rem; color: var(--gold); }
+  .auth-brand-sub { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 36px; }
+  .auth-label { display: block; text-align: left; font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; margin-top: 14px; }
+  .auth-field { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 11px 14px; font-size: 0.88rem; outline: none; }
+  .auth-field:focus { border-color: var(--gold); }
+  .auth-submit { width: 100%; margin-top: 24px; padding: 13px; background: var(--gold); color: #000; font-weight: 700; cursor: pointer; border-radius: 8px; border: none; }
+  .auth-submit:hover { background: #e8c97a; }
+  .auth-err { color: var(--red); font-size: 0.78rem; margin-top: 12px; }
+  #denied-overlay { position: fixed; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; z-index: 9998; }
+  #denied-overlay.show { display: flex; }
+  .denied-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 380px; text-align: center; }
+
+  .admin-invite-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+  .badge-gold { background: rgba(201,168,76,0.15); color: var(--gold); }
+  .badge-blue { background: rgba(91,155,213,0.12); color: var(--blue); }
+
+  /* Debug panel */
+  .debug-panel { background: #111; border: 1px solid #333; border-radius: 8px; padding: 14px; margin-top: 12px; font-family: monospace; font-size: 0.72rem; color: #aaa; max-height: 200px; overflow-y: auto; display: none; }
+  .debug-panel.visible { display: block; }
+  .debug-line { padding: 2px 0; border-bottom: 1px solid #222; }
+  .debug-line.found { color: var(--green); }
+  .debug-line.miss  { color: #555; }
+
+  @media (max-width: 900px) { .sidebar { width: 200px; } .main { margin-left: 200px; padding: 20px; } .grid2 { grid-template-columns: 1fr; } }
+  .net-diag { background:#111; border:1px solid #222; border-radius:10px; padding:16px; margin-top:14px; text-align:left; font-size:0.74rem; line-height:1.7; display:none; }
+  .net-diag.visible { display:block; }
+  .net-diag-title { font-size:0.8rem; font-weight:600; color:var(--gold); margin-bottom:10px; }
+  .net-diag-row { display:flex; align-items:flex-start; gap:8px; padding:4px 0; border-bottom:1px solid #1c1c1c; }
+  .net-diag-row:last-child { border:none; }
+  .net-diag-lbl { color:#666; min-width:140px; flex-shrink:0; }
+  .net-diag-val { color:var(--text); }
+  .net-diag-val.ok   { color:var(--green); }
+  .net-diag-val.fail { color:var(--red); }
+  .net-diag-fix { background:rgba(201,168,76,0.07); border:1px solid rgba(201,168,76,0.18); border-radius:8px; padding:10px 12px; margin-top:10px; color:#bbb; font-size:0.72rem; line-height:1.9; }
+  .net-diag-fix strong { color:var(--gold); }
+  .net-diag-fix code { background:#1a1a1a; padding:1px 5px; border-radius:3px; color:#e8c97a; font-size:0.9em; }
+  .auth-err { color:var(--red); font-size:0.78rem; margin-top:12px; min-height:18px; }
+  .auth-diag-btn { background:transparent; border:1px solid #2a2a2a; border-radius:6px; color:#555; font-size:0.7rem; padding:5px 10px; cursor:pointer; margin-top:8px; width:100%; transition:all 0.15s; font-family:inherit; }
+  .auth-diag-btn:hover { border-color:var(--gold); color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-brand">Il Retrogusto</div>
+    <div class="auth-brand-sub">Master Gestione 2026</div>
+    <label class="auth-label">Email</label>
+    <input class="auth-field" id="auth-email" type="email" placeholder="la-tua@email.com">
+    <label class="auth-label">Password</label>
+    <input class="auth-field" id="auth-pass" type="password" placeholder="password">
+    <button class="auth-submit" id="auth-btn" onclick="doLogin()">Accedi</button>
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-diag-btn" id="diag-btn" style="display:none" onclick="showDiag()">Mostra diagnosi connessione</button>
+    <div class="net-diag" id="net-diag"></div>
+  </div>
+</div>
+
+<div id="denied-overlay">
+  <div class="denied-card">
+    <div style="font-size:2rem;margin-bottom:12px;">🔒</div>
+    <div style="font-family:'Playfair Display',serif;color:var(--red);font-size:1.2rem;margin-bottom:8px;">Accesso non autorizzato</div>
+    <div style="color:var(--text-muted);font-size:0.85rem;">Il tuo account non è stato abilitato dall'amministratore.</div>
+    <button class="btn btn-ghost" onclick="doLogout()" style="margin-top:20px;">Esci</button>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>Il Retrogusto</h1>
+    <span>Master Gestione 2026</span>
+  </div>
+  <div class="nav">
+    <div class="nav-section">Dashboard</div>
+    <div class="nav-item active" onclick="showPage('cruscotto',this)"><span class="icon">📊</span>Cruscotto</div>
+    <div class="nav-section">Contabilità</div>
+    <div class="nav-item" onclick="showPage('bilanci',this)"><span class="icon">📑</span>Bilanci Annuali</div>
+    <div class="nav-item" onclick="showPage('bilancini',this)"><span class="icon">📊</span>Bilancini Mensili</div>
+    <div class="nav-section">Gestione</div>
+    <div class="nav-item" onclick="showPage('vendite',this)"><span class="icon">🧾</span>Vendite</div>
+    <div class="nav-item" onclick="showPage('abc_piatti',this)"><span class="icon">🍽️</span>ABC Piatti</div>
+    <div class="nav-item" onclick="showPage('personale',this)"><span class="icon">👥</span>Personale</div>
+    <div class="nav-item" onclick="showPage('tesoreria',this)"><span class="icon">💳</span>Tesoreria</div>
+    <div class="nav-section" id="admin-nav-section" style="display:none">Admin</div>
+    <div class="nav-item" id="admin-nav-item" onclick="showPage('admin',this)" style="display:none"><span class="icon">⚙️</span>Gestione Utenti</div>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="topbar">
+    <div class="save-dot" id="save-dot" title="Stato salvataggio"></div>
+    <span id="net-status-pill" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(76,175,125,0.12);color:var(--green);">● online</span>
+    <span class="topbar-email" id="topbar-email">—</span>
+    <span class="topbar-role" id="topbar-role"></span>
+    <button class="btn btn-ghost" onclick="doLogout()">Esci</button>
+  </div>
+
+<div id="net-banner">
+  <span class="nbdot"></span>
+  <span id="net-banner-msg">Connessione assente — i dati sono salvati localmente</span>
+  <button class="nbretry" onclick="netRetry()">↻ Riprova</button>
+</div>
+
+<section id="page-bilanci" class="page">
+  <div class="page-title">Bilanci Annuali</div>
+  <div class="page-sub">Carica PDF — Estrazione automatica di tutte le voci contabili</div>
+
+  <div class="card">
+    <div class="card-title">Carica Bilancio Annuale</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:flex-end;">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Anno</label>
+        <select id="bilancio-anno"><option>2022</option><option>2023</option><option>2024</option><option selected>2025</option><option>2026</option></select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Note</label>
+        <input id="bilancio-note" placeholder="Es. Bilancio definitivo">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('bilancio-file-input').click()">📎 Carica PDF</button>
+    </div>
+    <input type="file" id="bilancio-file-input" accept=".pdf" style="display:none" onchange="uploadBilancioPdf(this)">
+    <div id="bilancio-upload-msg" style="font-size:0.78rem; margin-top:12px; min-height:20px;"></div>
+    <div id="bilancio-progress" class="progress-container" style="display:none;"><div class="progress-fill" id="bilancio-progress-fill"></div></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-ghost" onclick="toggleDebug('bilancio-debug')" style="font-size:0.72rem;padding:4px 10px;">🔍 Debug parser</button>
+    </div>
+    <div class="debug-panel" id="bilancio-debug"></div>
+  </div>
+
+  <div class="year-selector" id="bilanci-year-selector"></div>
+  <div class="kpi-row" id="bilanci-kpi"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Ricavi vs Utile per Anno</div>
+      <div style="height:280px;"><canvas id="chart-bilanci-ricavi"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Composizione Costi (ultimo anno)</div>
+      <div style="height:280px;"><canvas id="chart-bilanci-costi"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Confronto Voci — Anno per Anno</div>
+    <div class="tbl-wrap" id="bilanci-confronto-table"></div>
+  </div>
+
+  <div class="card" id="bilanci-dettaglio-card" style="display:none;">
+    <div class="card-title">Dettaglio Completo — <span id="bilanci-dettaglio-title" style="color:var(--gold)"></span></div>
+    <div class="tbl-wrap" id="bilanci-dettaglio-table"></div>
+  </div>
+</section>
+
+<section id="page-bilancini" class="page">
+  <div class="page-title">Bilancini Mensili</div>
+  <div class="page-sub">Carica PDF — Estrazione automatica, confronto mese su mese</div>
+
+  <div class="card">
+    <div class="card-title">Carica Bilancino</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:12px; align-items:flex-end;">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Anno</label>
+        <select id="bilancino-anno"><option>2023</option><option>2024</option><option selected>2025</option><option>2026</option></select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Periodo</label>
+        <select id="bilancino-periodo">
+          <option>Gennaio</option><option>Febbraio</option><option>Marzo</option><option>Aprile</option>
+          <option>Maggio</option><option>Giugno</option><option>Luglio</option><option>Agosto</option>
+          <option>Settembre</option><option>Ottobre</option><option>Novembre</option><option>Dicembre</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Note</label>
+        <input id="bilancino-note" placeholder="Opzionale">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('bilancino-file-input').click()">📎 Carica PDF</button>
+    </div>
+    <input type="file" id="bilancino-file-input" accept=".pdf" style="display:none" onchange="uploadBilancinoPdf(this)">
+    <div id="bilancino-upload-msg" style="font-size:0.78rem; margin-top:12px; min-height:20px;"></div>
+    <div id="bilancino-progress" class="progress-container" style="display:none;"><div class="progress-fill" id="bilancino-progress-fill"></div></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-ghost" onclick="toggleDebug('bilancino-debug')" style="font-size:0.72rem;padding:4px 10px;">🔍 Debug parser</button>
+    </div>
+    <div class="debug-panel" id="bilancino-debug"></div>
+  </div>
+
+  <div class="year-selector" id="bilancini-period-selector"></div>
+  <div class="kpi-row" id="bilancini-kpi"></div>
+
+  <div class="card">
+    <div class="card-title">Confronto Voci — Periodo per Periodo</div>
+    <div class="tbl-wrap" id="bilancini-confronto-table"></div>
+  </div>
+</section>
+
+<section id="page-admin" class="page">
+  <div class="page-title">Gestione Utenti</div>
+  <div class="admin-invite-box">
+    <div class="card-title">Aggiungi Utente Autorizzato</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:12px; align-items:flex-end;">
+      <div class="form-group" style="margin-bottom:0"><label>Email</label><input id="invite-email" type="email"></div>
+      <div class="form-group" style="margin-bottom:0"><label>Password</label><input id="invite-pass" type="text"></div>
+      <div class="form-group" style="margin-bottom:0"><label>Ruolo</label><select id="invite-role"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+      <button class="btn btn-primary" onclick="createUser()">Crea</button>
+    </div>
+    <div id="invite-msg" style="font-size:0.78rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+  <div class="card"><div class="card-title">Utenti Autorizzati</div><div id="users-list"></div></div>
+</section>
+
+<section id="page-cruscotto" class="page active">
+  <div class="page-title">Cruscotto</div>
+  <div class="page-sub">Dashboard principale — in sviluppo</div>
+</section>
+<section id="page-vendite" class="page"><div class="page-title">Vendite</div></section>
+<section id="page-abc_piatti" class="page"><div class="page-title">ABC Piatti</div></section>
+<section id="page-personale" class="page"><div class="page-title">Personale</div></section>
+<section id="page-tesoreria" class="page"><div class="page-title">Tesoreria</div></section>
+
+</main>
+</div><script>
+/* ============================================================
+   FIREBASE CONFIG
+============================================================ */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBqcBJyJ0MhFN6H8HJjOaWKXd2HfyXMguA",
+  authDomain:        "freshmanager-eeaa8.firebaseapp.com",
+  projectId:         "freshmanager-eeaa8",
+  storageBucket:     "freshmanager-eeaa8.firebasestorage.app",
+  messagingSenderId: "672054327593",
+  appId:             "1:672054327593:web:527fc00fa808f5ad441f38"
+};
+const ADMIN_EMAIL = "elbasmartretail@gmail.com";
+
+let auth, db, currentUser, currentRole;
+let bilanciData   = {};   // { "2025": { ricaviTotali, costiTotali, ... } }
+let bilanciniData = {};   // { "2025_Gennaio": { ... } }
+
+/* ============================================================
+   UTILITY
+============================================================ */
+function fmt(v, d) {
+  if (d === undefined) d = 2;
+  return v == null ? '-' : v.toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function fmtCur(v) { return v == null ? '-' : '€ ' + fmt(v); }
+function fmtVar(current, prev) {
+  if (!prev || prev === 0) return '-';
+  var pct = ((current - prev) / Math.abs(prev) * 100).toFixed(1);
+  return (pct > 0 ? '+' : '') + pct + '%';
+}
+
+/* ---- parseNum: converte stringa italiana in float ---- */
+function parseNum(s) {
+  if (!s) return 0;
+  // Rimuove spazi, simboli €, caratteri non numerici eccetto punto e virgola
+  s = s.toString().trim().replace(/[€\s]/g, '');
+  // Formato italiano: 1.234,56  →  1234.56
+  // Gestisce anche: 1234,56  →  1234.56
+  // e:              1.234     →  1234 (numero intero con sep migliaia)
+  var hasComma = s.indexOf(',') >= 0;
+  var hasDot   = s.indexOf('.') >= 0;
+  if (hasComma && hasDot) {
+    // es. 1.234,56 → il punto è il separatore migliaia, la virgola il decimale
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma && !hasDot) {
+    // es. 234,56 o 1234,56 → virgola = decimale
+    s = s.replace(',', '.');
+  } else if (!hasComma && hasDot) {
+    // es. 1.234 → può essere migliaia o decimale
+    // Euristiche: se dopo il punto ci sono esattamente 3 cifre = migliaia
+    var parts = s.split('.');
+    if (parts.length === 2 && parts[1].length === 3) {
+      s = s.replace('.', ''); // 1234
+    }
+    // altrimenti lascia così (es. 1.5 = 1.5)
+  }
+  var result = parseFloat(s);
+  return isNaN(result) ? 0 : result;
+}
+
+/* ============================================================
+   NETWORK & OFFLINE STATE MANAGER
+   — rileva connessione, gestisce retry, cache locale IndexedDB-lite
+   — compatibile con apertura da file:// e ambienti con CSP stretti
+============================================================ */
+
+var _isOnline        = navigator.onLine;
+var _pendingSave     = false;   // dati modificati offline, da sincronizzare
+var _retryTimer      = null;
+var _retryCount      = 0;
+var RETRY_DELAYS     = [3000, 6000, 15000, 30000, 60000]; // back-off
+var LS_KEY_BILANCI   = 'rg_bilanci_local';
+var LS_KEY_BILANCINI = 'rg_bilancini_local';
+
+/* ── Salva in localStorage come backup offline ── */
+function saveLocalCache() {
+  try {
+    localStorage.setItem(LS_KEY_BILANCI,   JSON.stringify(bilanciData));
+    localStorage.setItem(LS_KEY_BILANCINI, JSON.stringify(bilanciniData));
+  } catch(e) { console.warn('localStorage save failed:', e.message); }
+}
+
+/* ── Carica da localStorage (usato quando Firestore non è raggiungibile) ── */
+function loadLocalCache() {
+  try {
+    var b  = localStorage.getItem(LS_KEY_BILANCI);
+    var bn = localStorage.getItem(LS_KEY_BILANCINI);
+    if (b)  Object.assign(bilanciData,   JSON.parse(b));
+    if (bn) Object.assign(bilanciniData, JSON.parse(bn));
+    return !!(b || bn);
+  } catch(e) { return false; }
+}
+
+/* ── Aggiorna indicatori visivi ── */
+function setSaveDot(state) {
+  // state: 'saving' | 'ok' | 'error' | 'offline' | 'pending'
+  var dot = document.getElementById('save-dot');
+  var pill = document.getElementById('net-status-pill');
+  if (!dot) return;
+  dot.className = 'save-dot';
+  switch(state) {
+    case 'saving':  dot.classList.add('saving');  dot.title = 'Salvataggio…';          break;
+    case 'ok':      dot.title = 'Tutti i dati salvati';                                 break;
+    case 'error':   dot.classList.add('error');   dot.title = 'Errore salvataggio';     break;
+    case 'offline': dot.classList.add('offline'); dot.title = 'Offline — cache locale'; break;
+    case 'pending': dot.classList.add('saving');  dot.title = 'In attesa di rete…';     break;
+  }
+  if (pill) {
+    if (state === 'ok') {
+      pill.style.background = 'rgba(76,175,125,0.12)';
+      pill.style.color      = 'var(--green)';
+      pill.textContent      = '● online';
+    } else if (state === 'offline' || state === 'pending') {
+      pill.style.background = 'rgba(100,100,100,0.15)';
+      pill.style.color      = '#777';
+      pill.textContent      = '○ offline';
+    } else if (state === 'error') {
+      pill.style.background = 'rgba(224,82,82,0.12)';
+      pill.style.color      = 'var(--red)';
+      pill.textContent      = '● errore rete';
+    } else if (state === 'saving') {
+      pill.style.background = 'rgba(201,168,76,0.12)';
+      pill.style.color      = 'var(--gold)';
+      pill.textContent      = '↻ sincronizzazione…';
+    }
+  }
+}
+
+function showNetBanner(type, msg) {
+  var banner  = document.getElementById('net-banner');
+  var bannerMsg = document.getElementById('net-banner-msg');
+  if (!banner) return;
+  banner.className = '';
+  void banner.offsetWidth; // force reflow
+  if (type === 'hide') { banner.className = ''; return; }
+  banner.classList.add(type);
+  if (bannerMsg) bannerMsg.textContent = msg || '';
+}
+
+function hideNetBanner() { showNetBanner('hide'); }
+
+/* ── Listener online/offline del browser ── */
+window.addEventListener('online',  function() {
+  _isOnline = true;
+  hideNetBanner();
+  setSaveDot('ok');
+  if (_pendingSave) {
+    showNetBanner('syncing', '↻ Rete ripristinata — sincronizzazione in corso…');
+    saveAllToFirestore();
+  }
+});
+window.addEventListener('offline', function() {
+  _isOnline = false;
+  _pendingSave = true;
+  setSaveDot('offline');
+  showNetBanner('offline', 'Connessione assente — i dati sono salvati localmente e si sincronizzeranno automaticamente.');
+});
+
+/* ── Classify Firebase errors ── */
+function isNetworkError(e) {
+  var networkCodes = [
+    'auth/network-request-failed',
+    'unavailable',
+    'failed-precondition',
+    'deadline-exceeded'
+  ];
+  if (!e) return false;
+  if (networkCodes.some(function(c) { return (e.code || '').indexOf(c) >= 0; })) return true;
+  var msg = (e.message || '').toLowerCase();
+  return msg.includes('network') || msg.includes('timeout') || msg.includes('fetch') ||
+         msg.includes('offline') || msg.includes('unreachable') || msg.includes('connection');
+}
+
+/* ── Retry con back-off esponenziale ── */
+function scheduleRetry(fn) {
+  clearTimeout(_retryTimer);
+  var delay = RETRY_DELAYS[Math.min(_retryCount, RETRY_DELAYS.length - 1)];
+  _retryCount++;
+  var secs = Math.round(delay / 1000);
+  showNetBanner('neterr', 'Errore di rete Firebase — nuovo tentativo tra ' + secs + 's  (tentativo ' + _retryCount + ')');
+  setSaveDot('pending');
+  _retryTimer = setTimeout(fn, delay);
+}
+
+/* ── Retry manuale dal banner ── */
+function netRetry() {
+  clearTimeout(_retryTimer);
+  _retryCount = 0;
+  hideNetBanner();
+  if (_pendingSave) {
+    saveAllToFirestore();
+  } else {
+    loadDataFromFirestore();
+  }
+}
+
+function toggleDebug(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('visible');
+}
+
+/* ============================================================
+   FIREBASE: SAVE — con retry automatico su errori di rete
+============================================================ */
+async function saveAllToFirestore() {
+  if (!currentUser || !db) return;
+  setSaveDot('saving');
+  // Salva sempre in locale prima (backup istantaneo)
+  saveLocalCache();
+
+  if (!navigator.onLine) {
+    _pendingSave = true;
+    setSaveDot('offline');
+    showNetBanner('offline', 'Offline — dati salvati in locale. Sincronizzazione automatica al ripristino della rete.');
+    return;
+  }
+
+  try {
+    var batch = db.batch();
+    for (var anno in bilanciData) {
+      var ref = db.collection('bilanci').doc(currentUser.uid + '_' + anno);
+      batch.set(ref, {
+        anno:      anno,
+        dati:      bilanciData[anno],
+        userId:    currentUser.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+    for (var key in bilanciniData) {
+      var ref2 = db.collection('bilancini').doc(currentUser.uid + '_' + key);
+      batch.set(ref2, {
+        key:       key,
+        dati:      bilanciniData[key],
+        userId:    currentUser.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+    await batch.commit();
+    _pendingSave = false;
+    _retryCount  = 0;
+    setSaveDot('ok');
+    hideNetBanner();
+  } catch(e) {
+    console.error('Firestore save error:', e.code || e.message);
+    _pendingSave = true;
+    if (isNetworkError(e)) {
+      scheduleRetry(saveAllToFirestore);
+    } else {
+      setSaveDot('error');
+      showNetBanner('neterr', 'Errore Firebase: ' + (e.code || e.message) + ' — dati salvati in locale.');
+    }
+  }
+}
+
+/* ============================================================
+   FIREBASE: LOAD — con fallback su cache locale
+============================================================ */
+async function loadDataFromFirestore() {
+  if (!db || !currentUser) return;
+
+  if (!navigator.onLine) {
+    var hadCache = loadLocalCache();
+    setSaveDot('offline');
+    showNetBanner('offline', 'Offline — caricati dati dalla cache locale' + (hadCache ? '' : '. Nessun dato in cache') + '.');
+    renderBilanci();
+    renderBilancini();
+    return;
+  }
+
+  try {
+    showNetBanner('syncing', '↻ Caricamento dati da Firebase…');
+    var bilancioSnap = await db.collection('bilanci')
+      .where('userId', '==', currentUser.uid).get();
+    bilancioSnap.forEach(function(doc) {
+      var d = doc.data();
+      if (d.anno && d.dati) bilanciData[d.anno] = d.dati;
+    });
+    var bilancinoSnap = await db.collection('bilancini')
+      .where('userId', '==', currentUser.uid).get();
+    bilancinoSnap.forEach(function(doc) {
+      var d = doc.data();
+      if (d.key && d.dati) bilanciniData[d.key] = d.dati;
+    });
+    // Aggiorna cache locale con i dati freschi
+    saveLocalCache();
+    _retryCount = 0;
+    setSaveDot('ok');
+    hideNetBanner();
+    renderBilanci();
+    renderBilancini();
+  } catch(e) {
+    console.error('Firestore load error:', e.code || e.message);
+    // Fallback immediato su cache locale
+    var hadCache = loadLocalCache();
+    renderBilanci();
+    renderBilancini();
+    if (isNetworkError(e)) {
+      setSaveDot('offline');
+      showNetBanner('offline',
+        'Connessione a Firebase non riuscita — ' +
+        (hadCache ? 'dati caricati dalla cache locale.' : 'nessun dato in cache.'));
+      scheduleRetry(loadDataFromFirestore);
+    } else {
+      setSaveDot('error');
+      showNetBanner('neterr', 'Errore Firebase: ' + (e.code || e.message));
+    }
+  }
+}
+
+/* ============================================================
+   PDF.JS — ESTRAZIONE TESTO
+   Usa pdf.js per PDF digitali; fallback OCR Tesseract per scansioni
+============================================================ */
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+async function extractTextFromPdf(file, onProgress) {
+  var arrayBuffer = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  var fullText = '';
+  var hasRealText = false;
+
+  for (var i = 1; i <= pdf.numPages; i++) {
+    var page    = await pdf.getPage(i);
+    var content = await page.getTextContent();
+
+    /* ---- Ricostruzione righe con coordinate Y ---- */
+    /* pdf.js restituisce gli item in ordine non garantito.
+       Li raggruppiamo per coordinata Y (arrotondando a 2px)
+       così da ricostruire le righe originali del documento. */
+    var buckets = {};
+    content.items.forEach(function(item) {
+      // transform[5] = coordinata Y del baseline
+      var y = Math.round((item.transform ? item.transform[5] : 0) / 2) * 2;
+      if (!buckets[y]) buckets[y] = [];
+      buckets[y].push({ x: item.transform ? item.transform[4] : 0, str: item.str });
+    });
+
+    // Ordina le Y in ordine decrescente (dall'alto in basso nel PDF)
+    var sortedY = Object.keys(buckets).map(Number).sort(function(a, b) { return b - a; });
+    sortedY.forEach(function(y) {
+      // Ordina gli item della stessa riga per X crescente (da sinistra a destra)
+      var items = buckets[y].sort(function(a, b) { return a.x - b.x; });
+      var lineText = items.map(function(it) { return it.str; }).join(' ').replace(/\s+/g, ' ').trim();
+      if (lineText) {
+        fullText += lineText + '\n';
+        if (lineText.length > 5) hasRealText = true;
+      }
+    });
+    fullText += '\n'; // separatore di pagina
+  }
+
+  // Se il PDF ha testo digitale sufficiente, usalo direttamente
+  if (hasRealText && fullText.trim().length > 200) {
+    return { text: fullText, method: 'pdfjs' };
+  }
+
+  // Altrimenti: PDF scansionato → OCR con Tesseract.js
+  if (onProgress) onProgress({ status: 'ocr', progress: 0, message: 'PDF scansionato — avvio OCR...' });
+
+  var images = [];
+  for (var i = 1; i <= pdf.numPages; i++) {
+    var page     = await pdf.getPage(i);
+    var viewport = page.getViewport({ scale: 2.0 });
+    var canvas   = document.createElement('canvas');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+    images.push(canvas.toDataURL('image/png'));
+    if (onProgress) onProgress({ status: 'ocr', progress: (i / pdf.numPages) * 30, message: 'Preparazione pagina ' + i + '/' + pdf.numPages });
+  }
+
+  var ocrText = '';
+  for (var i = 0; i < images.length; i++) {
+    if (onProgress) onProgress({
+      status:   'ocr',
+      progress: 30 + ((i + 1) / images.length) * 70,
+      message:  'OCR pagina ' + (i + 1) + '/' + images.length + '...'
+    });
+    var result = await Tesseract.recognize(images[i], 'ita');
+    ocrText += result.data.text + '\n';
+  }
+  if (onProgress) onProgress({ status: 'complete', progress: 100, message: 'OCR completato!' });
+
+  return { text: ocrText, method: 'ocr' };
+}
+
+/* ============================================================
+   PARSER CORE — parseBilancioVoci
+   ─────────────────────────────────────────────────────────────
+   PROBLEMI RISOLTI RISPETTO ALLA VERSIONE PRECEDENTE:
+   
+   1. LINE-AWARE: ogni voce viene cercata SOLO sulla sua riga.
+      Il numero estratto deve stare sulla STESSA riga della keyword.
+      NON vengono più guardati lines[i±1], lines[i±2].
+   
+   2. REGEX NUMERO SICURA: la regex estrae importi italiani
+      (es. 1.234,56 o 234,56) ma ESCLUDE:
+      - numeri interi brevi ≤ 5 cifre senza decimali (i codici voce
+        come "22", "24", "38", "26.1" non hanno virgola)
+      - il numero di codice contabile che compare A SINISTRA della riga
+        (il codice è quasi sempre la prima parola/numero della riga)
+   
+   3. PRIORITÀ DEI MATCH: per ogni voce, la funzione pesa i candidati
+      in ordine: prima cerca il pattern "CODICE SPAZIO NOME SPAZIO IMPORTO"
+      sulla riga esatta; poi cerca la keyword con importo a destra.
+   
+   4. DEDUPLICAZIONE: se la stessa somma compare su più righe diverse
+      per la stessa voce, viene presa solo la prima occorrenza trovata.
+      Flag `found` su ogni voce per evitare sovrascritture.
+   
+   5. RICAVI E TOTALI: estratti con ricerca mirata su keyword specifiche
+      ("VALORE DELLA PRODUZIONE", "TOTALE RICAVI", "TOTALE COSTI",
+       "UTILE D'ESERCIZIO", "PERDITA D'ESERCIZIO") — anche multi-riga
+      perché questi totali spesso hanno la keyword su una riga e
+      il numero sulla riga successiva (stessa indentazione).
+============================================================ */
+
+/**
+ * Regex per importi italiani: cattura es. 1.234,56 — 234,56 — 1.234.567,89
+ * NON cattura interi puri come "22" o "38" (senza la virgola decimale).
+ * Minimo: almeno 1 cifra + virgola + 2 cifre decimali.
+ *
+ * Gruppo 1: importo con separatori migliaia (es. "1.234,56")
+ */
+var IMPORTO_RE = /\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/g;
+
+/**
+ * Estrae il PRIMO importo valido da una stringa,
+ * ignorando i valori che sembrano codici contabili (es. "22", "24.6").
+ * Opzionalmente, salta i primi N caratteri (per ignorare il codice voce
+ * che sta all'inizio della riga).
+ */
+function estraiImporto(testo, skipChars) {
+  if (skipChars) testo = testo.slice(skipChars);
+  IMPORTO_RE.lastIndex = 0;
+  var match = IMPORTO_RE.exec(testo);
+  if (!match) return 0;
+  return parseNum(match[1]);
+}
+
+/**
+ * Estrai TUTTI gli importi da una riga, ordinati per posizione.
+ * Restituisce array di {valore, index}.
+ */
+function estraiTuttiImporti(riga) {
+  IMPORTO_RE.lastIndex = 0;
+  var results = [];
+  var m;
+  while ((m = IMPORTO_RE.exec(riga)) !== null) {
+    results.push({ valore: parseNum(m[1]), index: m.index });
+  }
+  return results;
+}
+
+/**
+ * Definizione delle voci contabili da cercare.
+ * - codice:    codice contabile (può comparire a inizio riga)
+ * - nome:      label da mostrare in UI
+ * - categoria: gruppo di aggregazione
+ * - keywords:  array di keyword da cercare nella riga (case-insensitive)
+ * Ordinate per specificità decrescente: la più specifica prima.
+ */
+var VOCI_DEFINIZIONI = [
+  // ── ACQUISTI ──────────────────────────────────────────────
+  { codice: '22',     nome: 'Acquisti merci/materie',     categoria: 'acquisti',
+    keywords: ['22 ACQUISTI', 'ACQUISTI DI MERCI', 'ACQUISTI MATERIE PRIME', 'MERCI C/ACQUISTI'] },
+
+  // ── SERVIZI (voce aggregata) ───────────────────────────────
+  { codice: '24',     nome: 'Totale servizi',              categoria: 'servizi',
+    keywords: ['24 SPESE PER SERVIZI', 'TOTALE SPESE PER SERVIZI', 'TOTALE SERVIZI'] },
+
+  // ── SERVIZI — dettaglio ────────────────────────────────────
+  { codice: '24.6',   nome: 'Forza motrice / luce',        categoria: 'servizi_dettaglio',
+    keywords: ['24.6 FORZA MOTRICE', 'FORZA MOTRICE', 'ENERGIA ELETTRICA'] },
+  { codice: '24.8',   nome: 'Vigilanza',                   categoria: 'servizi_dettaglio',
+    keywords: ['24.8 VIGILANZA', 'SPESE VIGILANZA'] },
+  { codice: '24.11',  nome: 'Compensi a terzi',            categoria: 'servizi_dettaglio',
+    keywords: ['24.11 COMPENSI A TERZI', 'COMPENSI A TERZI', 'COMPENSI PROFESSIONISTI'] },
+  { codice: '24.12',  nome: 'Spese amministrazione',       categoria: 'servizi_dettaglio',
+    keywords: ['24.12 SPESE DI AMMINISTRAZIONE', 'SPESE AMMINISTRAZIONE', 'SPESE AMMI'] },
+  { codice: '24.20',  nome: 'Prestazioni da terzi',        categoria: 'servizi_dettaglio',
+    keywords: ['24.20 PRESTAZ. DI SERVIZI DA TERZI', 'PRESTAZIONI DI SERVIZI DA TERZI', 'PRESTAZ. SERVIZI'] },
+  { codice: '24.21',  nome: 'Utenze acquedotto',           categoria: 'servizi_dettaglio',
+    keywords: ['24.21 UTENZE ACQUEDOTTO', 'UTENZE ACQUEDOTTO', 'ACQUEDOTTO'] },
+  { codice: '24.24',  nome: 'Spese telefoniche',           categoria: 'servizi_dettaglio',
+    keywords: ['24.24 SPESE TELEFONICHE', 'SPESE TELEFONICHE', 'TELEFONO'] },
+  { codice: '24.25',  nome: 'Gasolio / Gas',               categoria: 'servizi_dettaglio',
+    keywords: ['24.25 GASOLIO', 'GASOLIO', 'GAS COMBUSTIBILE', 'METANO'] },
+
+  // ── LAVORO (voce aggregata) ────────────────────────────────
+  { codice: '26',     nome: 'Costo del lavoro',            categoria: 'lavoro',
+    keywords: ['26 SPESE PER PRESTAZ. DI LAVORO', 'SPESE PER PRESTAZIONI DI LAVORO', 'COSTO DEL LAVORO', 'TOTALE LAVORO'] },
+
+  // ── LAVORO — dettaglio ─────────────────────────────────────
+  { codice: '26.1',   nome: 'Salari e stipendi',           categoria: 'lavoro_dettaglio',
+    keywords: ['26.1 SALARI E STIPENDI', 'SALARI E STIPENDI', 'SALARI STIPENDI'] },
+  { codice: '26.2',   nome: 'Contributi INPS',             categoria: 'lavoro_dettaglio',
+    keywords: ['26.2 CONTRIBUTI INPS', 'CONTRIBUTI INPS', 'CONTRIBUTI PREVIDENZIALI'] },
+  { codice: '26.4',   nome: 'TFR',                         categoria: 'lavoro_dettaglio',
+    keywords: ['26.4 TFR', 'TRATTAMENTO FINE RAPPORTO', 'ACCANTONAMENTO TFR'] },
+
+  // ── INTERESSI ─────────────────────────────────────────────
+  { codice: '30',     nome: 'Interessi passivi',           categoria: 'interessi',
+    keywords: ['30 INTERESSI PASSIVI', 'INTERESSI PASSIVI'] },
+
+  // ── AMMORTAMENTI ──────────────────────────────────────────
+  { codice: '34',     nome: 'Ammortamenti',                categoria: 'ammortamenti',
+    keywords: ['34 AMM.TI E DEPERIMENTI', 'AMMORTAMENTI E DEPERIMENTI', 'AMMORTAMENTI'] },
+
+  // ── LOCAZIONI ─────────────────────────────────────────────
+  { codice: '36',     nome: 'Canoni di locazione',         categoria: 'locazioni',
+    keywords: ['36 CANONI DI LOCAZIONE', 'CANONI DI LOCAZIONE', 'LOCAZIONE', 'AFFITTO'] },
+
+  // ── ALTRI COSTI (voce aggregata) ──────────────────────────
+  { codice: '38',     nome: 'Altri costi',                 categoria: 'altri',
+    keywords: ['38 ALTRI COMPONENTI NEGATIVI', 'ALTRI COMPONENTI NEGATIVI', 'ALTRI COSTI'] },
+
+  // ── ALTRI COSTI — dettaglio ───────────────────────────────
+  { codice: '38.13',  nome: 'Manutenzioni',                categoria: 'altri_dettaglio',
+    keywords: ['38.13 SPESE DI MANUTENZIONE', 'SPESE DI MANUTENZIONE', 'MANUTENZIONE'] },
+  { codice: '38.20',  nome: 'TARI',                        categoria: 'altri_dettaglio',
+    keywords: ['38.20 TARI', 'TARI'] },
+  { codice: '38.802', nome: 'Materiale di consumo',        categoria: 'altri_dettaglio',
+    keywords: ['38.802 MATERIALE DI CONSUMO', 'MATERIALE DI CONSUMO', 'MATERIALE CONSUMO'] },
+  { codice: '38.810', nome: 'Noleggio biancheria',         categoria: 'altri_dettaglio',
+    keywords: ['38.810 NOLEGGIO BIANCHERIA', 'NOLEGGIO BIANCHERIA'] },
+];
+
+/**
+ * parseBilancioVoci — parser principale, line-aware.
+ *
+ * @param  {string} text      Testo grezzo estratto dal PDF
+ * @param  {Array}  debugLog  Array in cui appendere log di debug (opzionale)
+ * @returns {object}          Struttura compatibile con Firestore esistente
+ */
+function parseBilancioVoci(text, debugLog) {
+  var result = {
+    ricaviTotali:       0,
+    costiTotali:        0,
+    utilePerdita:       0,
+    voci:               {},  // { codice: { codice, nome, categoria, valore } }
+    totaleAcquisti:     0,
+    totaleServizi:      0,
+    totaleLavoro:       0,
+    totaleAmmortamenti: 0,
+    totaleLocazioni:    0,
+    totaleAltriCosti:   0,
+    totaleInteressi:    0
+  };
+
+  var log = debugLog || [];
+
+  // Normalizza: uppercase, compatta spazi multipli, rimuovi tab
+  var lines = text.split(/\r?\n/).map(function(l) {
+    return l.replace(/\t/g, ' ').replace(/  +/g, ' ').trim();
+  }).filter(function(l) { return l.length > 0; });
+
+  /* ── 1. RICAVI TOTALI ── */
+  result.ricaviTotali = cercaTotale(lines, [
+    'VALORE DELLA PRODUZIONE',
+    'TOTALE RICAVI',
+    'RICAVI DELLE VENDITE',
+    'A) VALORE DELLA PRODUZIONE',
+    'TOTALE A'
+  ], log);
+
+  /* ── 2. TOTALE COSTI ── */
+  result.costiTotali = cercaTotale(lines, [
+    'TOTALE COSTI DELLA PRODUZIONE',
+    'TOTALE COSTI',
+    'B) COSTI DELLA PRODUZIONE',
+    'TOTALE B'
+  ], log);
+
+  /* ── 3. UTILE / PERDITA ── */
+  result.utilePerdita = cercaUtile(lines, log);
+
+  /* ── 4. VOCI ANALITICHE ── */
+  var foundFlags = {}; // { codice: true } — evita doppioni
+
+  VOCI_DEFINIZIONI.forEach(function(def) {
+    if (foundFlags[def.codice]) return;
+
+    for (var i = 0; i < lines.length; i++) {
+      var rigaUpper = lines[i].toUpperCase();
+
+      // Controlla se una delle keyword è presente nella riga
+      var kFound = false;
+      for (var k = 0; k < def.keywords.length; k++) {
+        if (rigaUpper.indexOf(def.keywords[k].toUpperCase()) >= 0) {
+          kFound = true;
+          break;
+        }
+      }
+      if (!kFound) continue;
+
+      /* ── Estrai importo dalla STESSA riga ──
+         Strategia:
+         1. Tutti gli importi sulla riga, ordinati per posizione
+         2. Salta il codice contabile che sta all'inizio riga
+         3. Prendi l'importo più a destra (ultimo → valore totale del conto)
+            che sia > 0 e plausibile (< 10.000.000)
+      */
+      var importi = estraiTuttiImporti(lines[i]);
+
+      // Filtra: rimuovi valori che sembrano codici contabili
+      // (un codice come "22,00" non è realistico → importo minimo 1,00)
+      var importiValidi = importi.filter(function(imp) {
+        return imp.valore >= 1 && imp.valore < 10000000;
+      });
+
+      if (importiValidi.length === 0) {
+        // Nessun importo sulla riga → guarda solo la riga immediatamente successiva
+        // (caso: riga con solo la descrizione, importo a capo)
+        if (i + 1 < lines.length) {
+          var rigaSucc = lines[i + 1];
+          // La riga successiva è valida se NON contiene keyword di altre voci
+          // (per non rubare valori da voci adiacenti)
+          if (!contieneAltreKeyword(rigaSucc, def, VOCI_DEFINIZIONI)) {
+            var impSucc = estraiTuttiImporti(rigaSucc).filter(function(x) {
+              return x.valore >= 1 && x.valore < 10000000;
+            });
+            if (impSucc.length > 0) {
+              var valore = impSucc[impSucc.length - 1].valore;
+              result.voci[def.codice] = { codice: def.codice, nome: def.nome, categoria: def.categoria, valore: valore };
+              foundFlags[def.codice] = true;
+              log.push({ tipo: 'found', msg: '✅ ' + def.codice + ' "' + def.nome + '" = ' + fmtCur(valore) + ' (riga successiva: "' + rigaSucc.slice(0, 60) + '")' });
+              break;
+            }
+          }
+        }
+        log.push({ tipo: 'miss', msg: '⚠️ ' + def.codice + ' "' + def.nome + '" trovata keyword ma nessun importo su riga: "' + lines[i].slice(0, 60) + '"' });
+        continue;
+      }
+
+      // Prendi l'importo più a destra (di solito il totale della colonna)
+      var valore = importiValidi[importiValidi.length - 1].valore;
+
+      result.voci[def.codice] = { codice: def.codice, nome: def.nome, categoria: def.categoria, valore: valore };
+      foundFlags[def.codice] = true;
+      log.push({ tipo: 'found', msg: '✅ ' + def.codice + ' "' + def.nome + '" = ' + fmtCur(valore) + ' (riga: "' + lines[i].slice(0, 70) + '")' });
+      break; // trovato → passa alla voce successiva
+    }
+
+    if (!foundFlags[def.codice]) {
+      log.push({ tipo: 'miss', msg: '❌ ' + def.codice + ' "' + def.nome + '" — nessuna riga corrispondente' });
+    }
+  });
+
+  /* ── 5. AGGREGAZIONE per categoria ── */
+  for (var c in result.voci) {
+    var v = result.voci[c];
+    switch (v.categoria) {
+      case 'acquisti':          result.totaleAcquisti     += v.valore; break;
+      case 'servizi':           result.totaleServizi       += v.valore; break;
+      case 'servizi_dettaglio': result.totaleServizi       += v.valore; break;
+      case 'lavoro':            result.totaleLavoro        += v.valore; break;
+      case 'lavoro_dettaglio':  result.totaleLavoro        += v.valore; break;
+      case 'ammortamenti':      result.totaleAmmortamenti  += v.valore; break;
+      case 'locazioni':         result.totaleLocazioni     += v.valore; break;
+      case 'altri':             result.totaleAltriCosti    += v.valore; break;
+      case 'altri_dettaglio':   result.totaleAltriCosti    += v.valore; break;
+      case 'interessi':         result.totaleInteressi     += v.valore; break;
+    }
+  }
+
+  // Evita doppio conteggio: se trovata la voce aggregata (es. "26") E i dettagli
+  // (es. "26.1", "26.2", "26.4"), usa solo la voce aggregata per l'aggregato
+  // (i dettagli sommano di solito meno del totale del gruppo per arrotondamenti)
+  if (result.voci['26']) {
+    // Se ho il totale lavoro come voce diretta, usa quello — azzera il conteggio dettagli
+    result.totaleLavoro = result.voci['26'].valore;
+  }
+  if (result.voci['24']) {
+    result.totaleServizi = result.voci['24'].valore;
+  }
+  if (result.voci['38']) {
+    result.totaleAltriCosti = result.voci['38'].valore;
+  }
+
+  /* ── 6. PERCENTUALI ── */
+  if (result.ricaviTotali > 0) {
+    result.foodCostPct  = (result.totaleAcquisti / result.ricaviTotali) * 100;
+    result.laborCostPct = (result.totaleLavoro   / result.ricaviTotali) * 100;
+    result.marginePct   = (result.utilePerdita   / result.ricaviTotali) * 100;
+  } else {
+    result.foodCostPct  = 0;
+    result.laborCostPct = 0;
+    result.marginePct   = 0;
+  }
+
+  return result;
+}
+
+/* ── Helper: cerca un valore totale per un set di keyword ── */
+function cercaTotale(lines, keywords, log) {
+  for (var k = 0; k < keywords.length; k++) {
+    var kw = keywords[k].toUpperCase();
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].toUpperCase().indexOf(kw) < 0) continue;
+      // Prima: cerca importo sulla stessa riga
+      var imp = estraiTuttiImporti(lines[i]).filter(function(x) { return x.valore > 100; });
+      if (imp.length > 0) {
+        var v = imp[imp.length - 1].valore;
+        log.push({ tipo: 'found', msg: '✅ TOTALE "' + keywords[k] + '" = ' + fmtCur(v) });
+        return v;
+      }
+      // Seconda chance: riga successiva
+      if (i + 1 < lines.length) {
+        var imp2 = estraiTuttiImporti(lines[i + 1]).filter(function(x) { return x.valore > 100; });
+        if (imp2.length > 0) {
+          var v2 = imp2[imp2.length - 1].valore;
+          log.push({ tipo: 'found', msg: '✅ TOTALE "' + keywords[k] + '" = ' + fmtCur(v2) + ' (riga+1)' });
+          return v2;
+        }
+      }
+    }
+  }
+  log.push({ tipo: 'miss', msg: '❌ TOTALE — nessuna keyword trovata: ' + keywords.join(', ') });
+  return 0;
+}
+
+/* ── Helper: cerca utile/perdita d'esercizio ── */
+function cercaUtile(lines, log) {
+  var kwPositive = ['UTILE D\'ESERCIZIO', 'UTILE NETTO', 'RISULTATO POSITIVO', 'UTILE'];
+  var kwNegative = ['PERDITA D\'ESERCIZIO', 'PERDITA NETTA', 'RISULTATO NEGATIVO', 'PERDITA'];
+  var segno = 1;
+
+  for (var i = 0; i < lines.length; i++) {
+    var upper = lines[i].toUpperCase();
+    var isPositive = kwPositive.some(function(k) { return upper.indexOf(k) >= 0; });
+    var isNegative = kwNegative.some(function(k) { return upper.indexOf(k) >= 0; });
+    if (!isPositive && !isNegative) continue;
+    segno = isNegative ? -1 : 1;
+
+    var imp = estraiTuttiImporti(lines[i]).filter(function(x) { return x.valore > 0; });
+    if (imp.length > 0) {
+      var v = imp[imp.length - 1].valore * segno;
+      log.push({ tipo: 'found', msg: '✅ UTILE/PERDITA = ' + fmtCur(v) });
+      return v;
+    }
+    if (i + 1 < lines.length) {
+      var imp2 = estraiTuttiImporti(lines[i + 1]).filter(function(x) { return x.valore > 0; });
+      if (imp2.length > 0) {
+        var v2 = imp2[imp2.length - 1].valore * segno;
+        log.push({ tipo: 'found', msg: '✅ UTILE/PERDITA = ' + fmtCur(v2) + ' (riga+1)' });
+        return v2;
+      }
+    }
+  }
+  log.push({ tipo: 'miss', msg: '❌ UTILE/PERDITA — non trovato' });
+  return 0;
+}
+
+/* ── Helper: controlla se una riga contiene keyword di ALTRE voci
+   (per evitare che il "lookahead +1" rubi da voci adiacenti) ── */
+function contieneAltreKeyword(riga, voceCorrente, tutteLeVoci) {
+  var rigaUpper = riga.toUpperCase();
+  for (var v = 0; v < tutteLeVoci.length; v++) {
+    if (tutteLeVoci[v].codice === voceCorrente.codice) continue;
+    for (var k = 0; k < tutteLeVoci[v].keywords.length; k++) {
+      if (rigaUpper.indexOf(tutteLeVoci[v].keywords[k].toUpperCase()) >= 0) return true;
+    }
+  }
+  return false;
+}
+
+/* ============================================================
+   UPLOAD HANDLERS
+============================================================ */
+function setProgress(idFill, pct) {
+  var el = document.getElementById(idFill);
+  if (el) el.style.width = pct + '%';
+}
+
+async function uploadBilancioPdf(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var msgEl       = document.getElementById('bilancio-upload-msg');
+  var progressDiv = document.getElementById('bilancio-progress');
+  var debugEl     = document.getElementById('bilancio-debug');
+
+  msgEl.innerHTML = '<div class="spinner"></div> Analisi PDF in corso…';
+  progressDiv.style.display = 'block';
+  setProgress('bilancio-progress-fill', 10);
+  debugEl.innerHTML = '';
+
+  try {
+    var extracted = await extractTextFromPdf(file, function(update) {
+      if (update.status === 'ocr') {
+        setProgress('bilancio-progress-fill', update.progress);
+        msgEl.innerHTML = '<div class="spinner"></div> ' + update.message;
+      }
+    });
+
+    setProgress('bilancio-progress-fill', 80);
+    msgEl.innerHTML = '<div class="spinner"></div> Parser contabile in esecuzione…';
+
+    if (extracted.text.trim().length < 50) {
+      progressDiv.style.display = 'none';
+      msgEl.innerHTML = '<span style="color:var(--red)">⚠️ Nessun testo leggibile nel PDF. Verifica che non sia protetto o corrotto.</span>';
+      return;
+    }
+
+    var debugLog  = [];
+    var dati      = parseBilancioVoci(extracted.text, debugLog);
+    var anno      = document.getElementById('bilancio-anno').value;
+    var note      = document.getElementById('bilancio-note').value;
+    var vociCount = Object.keys(dati.voci).length;
+
+    // Popola debug panel
+    debugEl.innerHTML = debugLog.map(function(entry) {
+      return '<div class="debug-line ' + (entry.tipo === 'found' ? 'found' : 'miss') + '">' + entry.msg + '</div>';
+    }).join('');
+
+    dati.anno           = anno;
+    dati.note           = note;
+    dati.dataCaricamento = new Date().toLocaleDateString('it-IT');
+    dati.metodo         = extracted.method;
+    bilanciData[anno]   = dati;
+
+    setProgress('bilancio-progress-fill', 100);
+    await saveAllToFirestore();
+    progressDiv.style.display = 'none';
+
+    msgEl.innerHTML = '<span style="color:var(--green)">✅ Bilancio ' + anno +
+      ' caricato (' + extracted.method + ') — ' + vociCount + ' voci trovate' +
+      ' | Ricavi: ' + fmtCur(dati.ricaviTotali) +
+      ' | Utile: '  + fmtCur(dati.utilePerdita) + '</span>';
+    input.value = '';
+    renderBilanci();
+
+  } catch(e) {
+    console.error(e);
+    progressDiv.style.display = 'none';
+    msgEl.innerHTML = '<span style="color:var(--red)">❌ Errore: ' + e.message + '</span>';
+  }
+}
+
+async function uploadBilancinoPdf(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var msgEl       = document.getElementById('bilancino-upload-msg');
+  var progressDiv = document.getElementById('bilancino-progress');
+  var debugEl     = document.getElementById('bilancino-debug');
+
+  msgEl.innerHTML = '<div class="spinner"></div> Analisi PDF in corso…';
+  progressDiv.style.display = 'block';
+  setProgress('bilancino-progress-fill', 10);
+  debugEl.innerHTML = '';
+
+  try {
+    var extracted = await extractTextFromPdf(file, function(update) {
+      if (update.status === 'ocr') {
+        setProgress('bilancino-progress-fill', update.progress);
+        msgEl.innerHTML = '<div class="spinner"></div> ' + update.message;
+      }
+    });
+
+    setProgress('bilancino-progress-fill', 80);
+    msgEl.innerHTML = '<div class="spinner"></div> Parser contabile in esecuzione…';
+
+    if (extracted.text.trim().length < 50) {
+      progressDiv.style.display = 'none';
+      msgEl.innerHTML = '<span style="color:var(--red)">⚠️ Nessun testo leggibile nel PDF.</span>';
+      return;
+    }
+
+    var debugLog  = [];
+    var dati      = parseBilancioVoci(extracted.text, debugLog);
+    var anno      = document.getElementById('bilancino-anno').value;
+    var periodo   = document.getElementById('bilancino-periodo').value;
+    var note      = document.getElementById('bilancino-note').value;
+    var key       = anno + '_' + periodo;
+    var vociCount = Object.keys(dati.voci).length;
+
+    debugEl.innerHTML = debugLog.map(function(entry) {
+      return '<div class="debug-line ' + (entry.tipo === 'found' ? 'found' : 'miss') + '">' + entry.msg + '</div>';
+    }).join('');
+
+    dati.anno           = anno;
+    dati.periodo        = periodo;
+    dati.note           = note;
+    dati.dataCaricamento = new Date().toLocaleDateString('it-IT');
+    dati.metodo         = extracted.method;
+    bilanciniData[key]  = dati;
+
+    setProgress('bilancino-progress-fill', 100);
+    await saveAllToFirestore();
+    progressDiv.style.display = 'none';
+
+    msgEl.innerHTML = '<span style="color:var(--green)">✅ ' + periodo + ' ' + anno +
+      ' caricato (' + extracted.method + ') — ' + vociCount + ' voci trovate' +
+      ' | Ricavi: ' + fmtCur(dati.ricaviTotali) + '</span>';
+    input.value = '';
+    renderBilancini();
+
+  } catch(e) {
+    console.error(e);
+    progressDiv.style.display = 'none';
+    msgEl.innerHTML = '<span style="color:var(--red)">❌ Errore: ' + e.message + '</span>';
+  }
+}
+
+/* ============================================================
+   RENDER — BILANCI ANNUALI
+============================================================ */
+function renderBilanci() {
+  var anni = Object.keys(bilanciData).sort().reverse();
+  var kpiEl     = document.getElementById('bilanci-kpi');
+  var tableEl   = document.getElementById('bilanci-confronto-table');
+  var yearSelEl = document.getElementById('bilanci-year-selector');
+
+  if (anni.length === 0) {
+    kpiEl.innerHTML   = '<div style="color:var(--text-muted);font-size:0.82rem;">Nessun bilancio caricato — carica il primo PDF qui sopra.</div>';
+    tableEl.innerHTML = '';
+    yearSelEl.innerHTML = '';
+    return;
+  }
+
+  var ultimo = bilanciData[anni[0]];
+  kpiEl.innerHTML =
+    kpi('Anno più recente',       anni[0],                               '', 'gold') +
+    kpi('Ricavi totali',          fmtCur(ultimo.ricaviTotali),            ultimo.note || '', 'gold') +
+    kpi('Costi totali',           fmtCur(ultimo.costiTotali),             '', 'negative') +
+    kpi('Utile / Perdita',        fmtCur(ultimo.utilePerdita),            fmt(ultimo.marginePct || 0, 1) + '%', ultimo.utilePerdita >= 0 ? 'positive' : 'negative') +
+    kpi('Food Cost %',            fmt(ultimo.foodCostPct || 0, 1) + '%',  '', (ultimo.foodCostPct || 0) > 35 ? 'negative' : 'positive') +
+    kpi('Costo lavoro %',         fmt(ultimo.laborCostPct || 0, 1) + '%', '', (ultimo.laborCostPct || 0) > 40 ? 'negative' : 'positive') +
+    kpi('Metodo estrazione',      (ultimo.metodo || 'pdfjs').toUpperCase(), ultimo.dataCaricamento || '', '');
+
+  // Grafici
+  var labels  = anni.slice().reverse();
+  var ricavi  = labels.map(function(a) { return bilanciData[a].ricaviTotali || 0; });
+  var utili   = labels.map(function(a) { return bilanciData[a].utilePerdita  || 0; });
+
+  if (window._chartBilRicavi) window._chartBilRicavi.destroy();
+  window._chartBilRicavi = new Chart(document.getElementById('chart-bilanci-ricavi'), {
+    type: 'bar',
+    data: { labels: labels, datasets: [
+      { label: 'Ricavi', data: ricavi, backgroundColor: 'rgba(76,175,125,0.55)', borderColor: '#4caf7d', borderWidth: 1 },
+      { label: 'Utile',  data: utili,  backgroundColor: 'rgba(201,168,76,0.55)', borderColor: '#c9a84c', borderWidth: 1 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#888' } } },
+      scales:  { x: { ticks: { color: '#666' }, grid: { color: '#222' } }, y: { ticks: { color: '#666' }, grid: { color: '#222' } } } }
+  });
+
+  if (window._chartBilCosti) window._chartBilCosti.destroy();
+  window._chartBilCosti = new Chart(document.getElementById('chart-bilanci-costi'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Acquisti', 'Servizi', 'Lavoro', 'Ammortamenti', 'Locazioni', 'Altri costi', 'Interessi'],
+      datasets: [{ data: [
+        ultimo.totaleAcquisti || 0, ultimo.totaleServizi || 0,
+        ultimo.totaleLavoro   || 0, ultimo.totaleAmmortamenti || 0,
+        ultimo.totaleLocazioni || 0, ultimo.totaleAltriCosti || 0,
+        ultimo.totaleInteressi || 0
+      ], backgroundColor: ['#e05252','#e67e22','#9b59b6','#e91e63','#795548','#607d8b','#2196f3'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#888', font: { size: 11 } } } } }
+  });
+
+  // Tabella confronto voci
+  var tuttiCodici = {};
+  labels.forEach(function(a) {
+    if (bilanciData[a] && bilanciData[a].voci) {
+      Object.keys(bilanciData[a].voci).forEach(function(c) { tuttiCodici[c] = true; });
+    }
+  });
+  var codiciOrdinati = Object.keys(tuttiCodici).sort();
+
+  var html = '<table><thead><tr><th>Codice</th><th>Voce</th>';
+  labels.forEach(function(a) { html += '<th>' + a + '</th><th>Var %</th>'; });
+  html += '</tr></thead><tbody>';
+
+  codiciOrdinati.forEach(function(codice) {
+    var nomeVoce = (bilanciData[labels[0]] && bilanciData[labels[0]].voci[codice]) ? bilanciData[labels[0]].voci[codice].nome : codice;
+    html += '<tr><td style="color:var(--text-muted);font-size:0.78rem;">' + codice + '</td><td>' + nomeVoce + '</td>';
+    var prev = null;
+    labels.forEach(function(a) {
+      var val = (bilanciData[a] && bilanciData[a].voci[codice]) ? bilanciData[a].voci[codice].valore : 0;
+      html += '<td class="num">' + fmtCur(val) + '</td>';
+      html += '<td class="num" style="color:' + (prev === null ? 'var(--text-muted)' : '') + '">' + (prev !== null ? fmtVar(val, prev) : '-') + '</td>';
+      prev = val;
+    });
+    html += '</tr>';
+  });
+
+  // Righe totali
+  html += rigaTotale(labels, 'TOTALE RICAVI', 'ricaviTotali', 'gold');
+  html += rigaTotale(labels, 'TOTALE COSTI',  'costiTotali',  'red');
+  html += '<tr style="border-top:2px solid var(--gold);"><td colspan="2"><strong>UTILE / PERDITA</strong></td>';
+  var prevU = null;
+  labels.forEach(function(a) {
+    var v = bilanciData[a].utilePerdita || 0;
+    html += '<td class="num ' + (v >= 0 ? 'green' : 'red') + '"><strong>' + fmtCur(v) + '</strong></td>';
+    html += '<td class="num">' + (prevU !== null ? fmtVar(v, prevU) : '-') + '</td>';
+    prevU = v;
+  });
+  html += '</tr></tbody></table>';
+
+  tableEl.innerHTML = html;
+  yearSelEl.innerHTML = labels.map(function(a) {
+    return '<button class="year-btn" onclick="showBilancioDettaglio(\'' + a + '\')">' + a + '</button>';
+  }).join('');
+}
+
+function rigaTotale(labels, titolo, campo, cls) {
+  var html = '<tr style="border-top:2px solid var(--border);background:var(--surface2);"><td colspan="2"><strong>' + titolo + '</strong></td>';
+  var prev = null;
+  labels.forEach(function(a) {
+    var v = bilanciData[a][campo] || 0;
+    html += '<td class="num ' + cls + '"><strong>' + fmtCur(v) + '</strong></td>';
+    html += '<td class="num">' + (prev !== null ? fmtVar(v, prev) : '-') + '</td>';
+    prev = v;
+  });
+  html += '</tr>';
+  return html;
+}
+
+function showBilancioDettaglio(anno) {
+  var d = bilanciData[anno];
+  if (!d) return;
+  document.getElementById('bilanci-dettaglio-title').textContent = 'Bilancio ' + anno;
+  document.getElementById('bilanci-dettaglio-card').style.display = 'block';
+  var voci = Object.values(d.voci).sort(function(a, b) { return a.codice.localeCompare(b.codice); });
+  var rows = '<thead><tr><th>Codice</th><th>Voce</th><th>Importo</th></tr></thead><tbody>';
+  voci.forEach(function(v) {
+    rows += '<tr><td style="color:var(--text-muted)">' + v.codice + '</td><td>' + v.nome + '</td><td class="num">' + fmtCur(v.valore) + '</td></tr>';
+  });
+  rows += '<tr style="border-top:2px solid var(--gold);"><td colspan="2"><strong>TOTALE RICAVI</strong></td><td class="num gold"><strong>' + fmtCur(d.ricaviTotali) + '</strong></td></tr>';
+  rows += '<tr><td colspan="2"><strong>TOTALE COSTI</strong></td><td class="num red"><strong>'  + fmtCur(d.costiTotali)  + '</strong></td></tr>';
+  rows += '<tr><td colspan="2"><strong>UTILE / PERDITA</strong></td><td class="num ' + (d.utilePerdita >= 0 ? 'green' : 'red') + '"><strong>' + fmtCur(d.utilePerdita) + '</strong></td></tr>';
+  rows += '</tbody>';
+  document.getElementById('bilanci-dettaglio-table').innerHTML = '<table>' + rows + '</table>';
+  document.getElementById('bilanci-dettaglio-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ============================================================
+   RENDER — BILANCINI MENSILI
+============================================================ */
+function renderBilancini() {
+  var keys  = Object.keys(bilanciniData).sort().reverse();
+  var kpiEl     = document.getElementById('bilancini-kpi');
+  var tableEl   = document.getElementById('bilancini-confronto-table');
+  var periodEl  = document.getElementById('bilancini-period-selector');
+
+  if (keys.length === 0) {
+    kpiEl.innerHTML   = '<div style="color:var(--text-muted);font-size:0.82rem;">Nessun bilancino caricato ancora.</div>';
+    tableEl.innerHTML = '';
+    periodEl.innerHTML = '';
+    return;
+  }
+
+  var ultimo = bilanciniData[keys[0]];
+  kpiEl.innerHTML =
+    kpi('Ultimo periodo',    (ultimo.periodo || '') + ' ' + (ultimo.anno || ''), '', 'gold') +
+    kpi('Ricavi',            fmtCur(ultimo.ricaviTotali),  '', 'gold') +
+    kpi('Costi totali',      fmtCur(ultimo.costiTotali),   '', 'negative') +
+    kpi('Utile / Perdita',   fmtCur(ultimo.utilePerdita),  fmt(ultimo.marginePct || 0, 1) + '%', ultimo.utilePerdita >= 0 ? 'positive' : 'negative') +
+    kpi('Metodo estrazione', (ultimo.metodo || 'pdfjs').toUpperCase(), '', '');
+
+  var vociPrincipali = [
+    { key: 'ricaviTotali',      nome: 'Ricavi totali',      cls: 'gold' },
+    { key: 'costiTotali',       nome: 'Costi totali',       cls: 'red'  },
+    { key: 'utilePerdita',      nome: 'Utile / Perdita',    cls: ''     },
+    { key: 'totaleAcquisti',    nome: 'Acquisti',           cls: ''     },
+    { key: 'totaleServizi',     nome: 'Servizi',            cls: ''     },
+    { key: 'totaleLavoro',      nome: 'Costo del lavoro',   cls: ''     },
+    { key: 'totaleAmmortamenti',nome: 'Ammortamenti',       cls: ''     },
+    { key: 'totaleLocazioni',   nome: 'Locazioni',          cls: ''     },
+    { key: 'totaleAltriCosti',  nome: 'Altri costi',        cls: ''     },
+  ];
+
+  var html = '<table><thead><tr><th>Voce</th>';
+  keys.forEach(function(k) {
+    var d = bilanciniData[k];
+    html += '<th>' + (d.periodo || '') + ' ' + (d.anno || '') + '</th><th>Var %</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  vociPrincipali.forEach(function(voce) {
+    html += '<tr><td>' + voce.nome + '</td>';
+    var prev = null;
+    keys.forEach(function(k) {
+      var val = bilanciniData[k][voce.key] || 0;
+      var cls = voce.cls || (val >= 0 ? 'green' : 'red');
+      html += '<td class="num ' + cls + '">' + fmtCur(val) + '</td>';
+      html += '<td class="num">' + (prev !== null ? fmtVar(val, prev) : '-') + '</td>';
+      prev = val;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  tableEl.innerHTML = html;
+
+  periodEl.innerHTML = keys.map(function(k) {
+    var d = bilanciniData[k];
+    return '<button class="year-btn" onclick="showBilancinoDettaglio(\'' + k + '\')">' +
+      (d.periodo || '') + ' ' + (d.anno || '') + '</button>';
+  }).join('');
+}
+
+function showBilancinoDettaglio(key) {
+  var d = bilanciniData[key];
+  if (!d) return;
+  var voci = Object.values(d.voci || {}).sort(function(a, b) { return a.codice.localeCompare(b.codice); });
+  var msg = (d.periodo || '') + ' ' + (d.anno || '') + '\n';
+  msg += 'Ricavi: ' + fmtCur(d.ricaviTotali) + '\n';
+  msg += 'Costi: '  + fmtCur(d.costiTotali)  + '\n';
+  msg += 'Utile: '  + fmtCur(d.utilePerdita) + '\n\n';
+  voci.forEach(function(v) { msg += v.codice + ' ' + v.nome + ': ' + fmtCur(v.valore) + '\n'; });
+  alert(msg);
+}
+
+/* ── KPI helper ── */
+function kpi(label, val, sub, cls) {
+  return '<div class="kpi">' +
+    '<div class="kpi-label">' + label + '</div>' +
+    '<div class="kpi-value ' + cls + '">' + val + '</div>' +
+    (sub ? '<div class="kpi-sub">' + sub + '</div>' : '') +
+    '</div>';
+}
+
+/* ============================================================
+   AUTH & NAVIGATION
+============================================================ */
+function showAuthScreen() {
+  document.getElementById('auth-overlay').classList.remove('gone');
+  document.getElementById('denied-overlay').classList.remove('show');
+  document.getElementById('main-app').style.display = 'none';
+}
+
+async function runNetDiagnosis() {
+  var diag    = document.getElementById('net-diag');
+  var diagBtn = document.getElementById('diag-btn');
+  if (!diag) return;
+  diag.innerHTML = '<div class="net-diag-title">Diagnosi connessione in corso...</div>';
+  diag.classList.add('visible');
+
+  var rows = [];
+
+  // 1. Browser online flag
+  var online = navigator.onLine;
+  rows.push({ icon: online ? '&check;' : '&times;', lbl: 'Browser online', val: online ? 'Si' : 'No', cls: online ? 'ok' : 'fail' });
+
+  // 2. Protocol - file:// blocks cross-origin fetch
+  var proto  = location.protocol;
+  var isFile = proto === 'file:';
+  rows.push({ icon: isFile ? '&times;' : '&check;', lbl: 'Protocollo', val: proto + (isFile ? ' &mdash; PROBLEMA' : ' &mdash; OK'), cls: isFile ? 'fail' : 'ok' });
+
+  // 3. Generic internet (google.com)
+  var googleOk = false;
+  try {
+    await Promise.race([
+      fetch('https://www.google.com/favicon.ico', { mode: 'no-cors', cache: 'no-store' }),
+      new Promise(function(_, r) { setTimeout(function(){ r(new Error()); }, 5000); })
+    ]);
+    googleOk = true;
+  } catch(e2) {}
+  rows.push({ icon: googleOk ? '&check;' : '&times;', lbl: 'Internet (google.com)', val: googleOk ? 'OK' : 'Non raggiungibile', cls: googleOk ? 'ok' : 'fail' });
+
+  // 4. Firebase Auth endpoint
+  var fbAuthOk = false;
+  try {
+    var r4 = await Promise.race([
+      fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=test',
+        { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}', cache: 'no-store' }),
+      new Promise(function(_, r) { setTimeout(function(){ r(new Error()); }, 6000); })
+    ]);
+    fbAuthOk = (r4.status > 0);
+  } catch(e2) {}
+  rows.push({ icon: fbAuthOk ? '&check;' : '&times;', lbl: 'Firebase Auth API', val: fbAuthOk ? 'Raggiungibile' : 'Bloccato (firewall/VPN/DNS)', cls: fbAuthOk ? 'ok' : 'fail' });
+
+  // 5. Firestore endpoint
+  var fsOk = false;
+  try {
+    await Promise.race([
+      fetch('https://firestore.googleapis.com/', { mode: 'no-cors', cache: 'no-store' }),
+      new Promise(function(_, r) { setTimeout(function(){ r(new Error()); }, 6000); })
+    ]);
+    fsOk = true;
+  } catch(e2) {}
+  rows.push({ icon: fsOk ? '&check;' : '&times;', lbl: 'Firestore API', val: fsOk ? 'Raggiungibile' : 'Bloccato', cls: fsOk ? 'ok' : 'fail' });
+
+  // Build HTML
+  var html = '<div class="net-diag-title">Risultati diagnosi</div>';
+  rows.forEach(function(r) {
+    html += '<div class="net-diag-row">'
+          + '<span class="net-diag-lbl">' + r.icon + ' ' + r.lbl + '</span>'
+          + '<span class="net-diag-val ' + r.cls + '">' + r.val + '</span>'
+          + '</div>';
+  });
+
+  // Contextual fix instructions
+  var fix = '';
+  if (isFile) {
+    fix = '<strong>Causa: file aperto come file://</strong><br>'
+        + 'Firebase richiede HTTPS o localhost. Soluzioni rapide:<br>'
+        + '1. <strong>VS Code + Live Server</strong>: tasto destro sul file &rarr; "Open with Live Server"<br>'
+        + '2. Terminale nella cartella del file: <code>python -m http.server 8080</code> poi apri <code>http://localhost:8080</code><br>'
+        + '3. Carica su <strong>Netlify Drop</strong>: trascina il file su <code>netlify.com/drop</code>';
+  } else if (!googleOk) {
+    fix = '<strong>Nessuna connessione internet.</strong><br>Controlla Wi-Fi o cavo di rete.';
+  } else if (!fbAuthOk) {
+    fix = '<strong>Firebase bloccato dalla rete locale.</strong><br>'
+        + 'Internet funziona ma googleapis.com è bloccato. Cause comuni:<br>'
+        + '&bull; <strong>VPN aziendale</strong>: disattivala temporaneamente o aggiungi eccezione per <code>*.googleapis.com</code><br>'
+        + '&bull; <strong>Firewall/proxy</strong>: sblocca <code>identitytoolkit.googleapis.com</code> e <code>firestore.googleapis.com</code><br>'
+        + '&bull; <strong>DNS bloccante</strong> (Pi-hole, AdGuard, NextDNS): aggiungi whitelist per <code>googleapis.com</code>';
+  } else {
+    fix = '<strong>Connessione OK.</strong> Riprova il login. Se l\'errore persiste verifica che l\'API Key Firebase nel codice sia corretta.';
+  }
+  html += '<div class="net-diag-fix">' + fix + '</div>';
+
+  diag.innerHTML = html;
+  if (diagBtn) diagBtn.textContent = 'Aggiorna diagnosi';
+}
+
+function showDiag() { runNetDiagnosis(); }
+
+async function doLogin() {
+  var email   = document.getElementById('auth-email').value.trim();
+  var pass    = document.getElementById('auth-pass').value;
+  var errEl   = document.getElementById('auth-err');
+  var btn     = document.getElementById('auth-btn');
+  var diagBtn = document.getElementById('diag-btn');
+  errEl.innerHTML = '';
+  if (diagBtn) diagBtn.style.display = 'none';
+  btn.disabled    = true;
+  btn.textContent = 'Accesso in corso...';
+
+  if (!navigator.onLine) {
+    errEl.innerHTML = 'Nessuna connessione internet.';
+    if (diagBtn) diagBtn.style.display = 'block';
+    runNetDiagnosis();
+    btn.disabled    = false;
+    btn.textContent = 'Accedi';
+    return;
+  }
+
+  var loginTimeout = new Promise(function(_, reject) {
+    setTimeout(function() { reject({ code: 'auth/network-request-failed', _isTimeout: true }); }, 12000);
+  });
+
+  try {
+    await Promise.race([auth.signInWithEmailAndPassword(email, pass), loginTimeout]);
+  } catch(e) {
+    var isNet = (e.code === 'auth/network-request-failed');
+    var msgs = {
+      'auth/user-not-found':        'Account non trovato.',
+      'auth/wrong-password':        'Password errata.',
+      'auth/invalid-credential':    'Email o password errati.',
+      'auth/too-many-requests':     'Troppi tentativi. Attendi qualche minuto.',
+      'auth/network-request-failed': e._isTimeout ? 'Timeout: nessuna risposta da Firebase.' : 'Errore di rete Firebase (auth/network-request-failed).'
+    };
+    errEl.innerHTML = msgs[e.code] || e.message;
+    if (isNet) {
+      if (diagBtn) diagBtn.style.display = 'block';
+      runNetDiagnosis();
+    }
+    btn.disabled    = false;
+    btn.textContent = 'Accedi';
+  }
+}
+document.getElementById('auth-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+
+async function doLogout() { await auth.signOut(); }
+
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  if (el)  el.classList.add('active');
+  if (id === 'bilanci')   renderBilanci();
+  if (id === 'bilancini') renderBilancini();
+  if (id === 'admin')     loadUsersList();
+}
+
+async function createUser() {
+  if (currentRole !== 'admin') return;
+  var email = document.getElementById('invite-email').value.trim();
+  var pass  = document.getElementById('invite-pass').value.trim();
+  var role  = document.getElementById('invite-role').value;
+  var msgEl = document.getElementById('invite-msg');
+  msgEl.textContent = 'Creazione in corso…';
+  try {
+    var secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary');
+    var secAuth      = secondaryApp.auth();
+    var cred         = await secAuth.createUserWithEmailAndPassword(email, pass);
+    await secAuth.signOut();
+    secondaryApp.delete();
+    await db.collection('allowedUsers').doc(cred.user.uid).set({
+      email: email, role: role, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = '✅ Utente ' + email + ' creato!';
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-pass').value  = '';
+    loadUsersList();
+  } catch(e) {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = e.message;
+  }
+}
+
+async function loadUsersList() {
+  if (currentRole !== 'admin') return;
+  var listEl = document.getElementById('users-list');
+  if (!listEl) return;
+  try {
+    var snap = await db.collection('allowedUsers').get();
+    if (snap.empty) { listEl.innerHTML = '<div style="color:var(--text-muted);">Nessun utente registrato.</div>'; return; }
+    var rows = '';
+    snap.forEach(function(doc) {
+      var d    = doc.data();
+      var isMe = doc.id === currentUser.uid;
+      rows += '<tr><td>' + d.email + '</td>' +
+        '<td><span class="badge ' + (d.role === 'admin' ? 'badge-gold' : 'badge-blue') + '">' + d.role + '</span></td>' +
+        '<td>' + (isMe ? '<span style="color:var(--text-muted);font-size:0.75rem;">sei tu</span>' :
+          '<button class="btn btn-danger" onclick="removeUser(\'' + doc.id + '\')" style="padding:3px 10px;font-size:0.72rem;">Rimuovi</button>') + '</td></tr>';
+    });
+    listEl.innerHTML = '<table><thead><tr><th>Email</th><th>Ruolo</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+  } catch(e) { listEl.innerHTML = '<div style="color:var(--red);">Errore caricamento.</div>'; }
+}
+
+async function removeUser(uid) {
+  if (!confirm('Rimuovere questo utente?')) return;
+  await db.collection('allowedUsers').doc(uid).delete();
+  loadUsersList();
+}
+
+/* ============================================================
+   FIREBASE INIT
+============================================================ */
+function showApp(user) {
+  document.getElementById('auth-overlay').classList.add('gone');
+  document.getElementById('denied-overlay').classList.remove('show');
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('topbar-email').textContent = user.email;
+  document.getElementById('topbar-role').textContent  = currentRole === 'admin' ? '👑 Admin' : '👤 Staff';
+  if (currentRole === 'admin') {
+    document.getElementById('admin-nav-section').style.display = '';
+    document.getElementById('admin-nav-item').style.display    = '';
+  }
+}
+
+function initFirebase() {
+  try { firebase.initializeApp(firebaseConfig); } catch(e) {}
+  auth = firebase.auth();
+  db   = firebase.firestore();
+
+  // Persistenza offline IndexedDB — unica API disponibile nella compat SDK 10.x
+  // enableMultiTabIndexedDbPersistence rimosso in v10; settings() non va chiamato
+  // dopo firestore() o genera il warning "overriding host".
+  db.enableIndexedDbPersistence()
+    .catch(function(e) {
+      if (e.code === 'failed-precondition') {
+        console.info('Firestore offline cache: altra scheda ha il lock (non critico).');
+      } else if (e.code === 'unimplemented') {
+        console.info('Firestore offline cache: non supportata in questo browser.');
+      }
+    });
+
+  auth.onAuthStateChanged(async function(user) {
+    if (!user) { showAuthScreen(); return; }
+    currentUser = user;
+    currentRole = (user.email === ADMIN_EMAIL) ? 'admin' : 'staff';
+
+    try {
+      var snap = await db.collection('allowedUsers').doc(user.uid).get();
+      if (snap.exists) {
+        currentRole = snap.data().role || currentRole;
+      } else if (user.email === ADMIN_EMAIL) {
+        // Prima volta dell'admin — registra in allowedUsers
+        await db.collection('allowedUsers').doc(user.uid).set({
+          email: user.email, role: 'admin',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // Utente non autorizzato
+        currentUser = null;
+        document.getElementById('auth-overlay').classList.add('gone');
+        document.getElementById('denied-overlay').classList.add('show');
+        document.getElementById('main-app').style.display = 'none';
+        return;
+      }
+    } catch(e) {
+      // Se la verifica Firestore fallisce per rete ma è l'admin → accesso permesso
+      // Per utenti non-admin su errore di rete → accesso negato (sicurezza)
+      if (isNetworkError(e)) {
+        if (user.email === ADMIN_EMAIL) {
+          console.warn('allowedUsers check failed (network) — admin bypass');
+          // Prova a caricare il ruolo dalla cache locale se disponibile
+          var cachedRole = localStorage.getItem('rg_role_' + user.uid);
+          if (cachedRole) currentRole = cachedRole;
+        } else {
+          // Per staff: carica ruolo da cache se esiste, altrimenti nega
+          var cachedRole = localStorage.getItem('rg_role_' + user.uid);
+          if (cachedRole) {
+            currentRole = cachedRole;
+            showNetBanner('offline', 'Accesso con credenziali in cache — alcune funzioni potrebbero non essere disponibili offline.');
+          } else {
+            showAuthScreen();
+            document.getElementById('auth-err').innerHTML =
+              'Errore di rete — impossibile verificare l\'accesso.<br>' +
+              '<small style="color:#777">Riprova quando la connessione è disponibile.</small>';
+            return;
+          }
+        }
+      } else {
+        if (user.email !== ADMIN_EMAIL) { showAuthScreen(); return; }
+      }
+    }
+
+    // Memorizza il ruolo in cache locale per accessi offline successivi
+    try { localStorage.setItem('rg_role_' + user.uid, currentRole); } catch(e) {}
+
+    showApp(user);
+    loadDataFromFirestore();
+  });
+}
+
+initFirebase();
+</script>
+</body>
+</html>
